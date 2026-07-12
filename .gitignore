@@ -1,0 +1,4 @@
+# secrets / local state - never commit
+scripts/env.sh
+scripts/.project
+*.log

@@ -1,0 +1,17 @@
+# centos7-small — single CentOS 7 VM, "small" flavor, static IP from the network profile's IP range.
+# Deploys onto vSphere by cloning the "centos7" image mapping (a vCenter template).
+formatVersion: 1
+inputs: {}
+resources:
+  Cloud_Machine_1:
+    type: Cloud.vSphere.Machine
+    properties:
+      image: centos7          # -> image mapping "centos7" (points to a vCenter VM template)
+      flavor: small           # -> flavor mapping "small" (1 vCPU / 2 GB)
+      networks:
+        - network: '${resource.Cloud_Network_1.id}'
+          assignment: static  # vRA assigns an IP from the network's IP range and pushes it via guest customization
+  Cloud_Network_1:
+    type: Cloud.vSphere.Network
+    properties:
+      networkType: existing   # attach to an already-existing port group (via the network profile)

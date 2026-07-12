@@ -1,0 +1,31 @@
+# web-app — parameterized single VM. The requester picks the OS image and size at deploy time
+# via a drop-down (inputs with enum). Demonstrates vRA inputs + ${input.x} bindings.
+formatVersion: 1
+inputs:
+  size:
+    type: string
+    title: Machine size
+    default: small
+    enum:
+      - small
+      - medium
+  osimage:
+    type: string
+    title: OS image
+    default: centos7
+    enum:
+      - centos7
+      - ubuntu
+resources:
+  Cloud_Machine_1:
+    type: Cloud.vSphere.Machine
+    properties:
+      image: '${input.osimage}'
+      flavor: '${input.size}'
+      networks:
+        - network: '${resource.Cloud_Network_1.id}'
+          assignment: static
+  Cloud_Network_1:
+    type: Cloud.vSphere.Network
+    properties:
+      networkType: existing

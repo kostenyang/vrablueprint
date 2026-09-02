@@ -1,0 +1,119 @@
+# =============================================================================
+# vSphere VM — metadata（藍圖層級描述）+ attributes（走 resource properties）
+#
+# 已在 VMware Aria Automation 8.18.1 端到端實測（2026-09-02）：
+#   POST /blueprint/api/blueprints            -> HTTP 201, valid: true
+#   POST /blueprint/api/blueprint-requests    -> CREATE_SUCCESSFUL
+#   VM 取得靜態 IP 10.0.0.212、ping 通、落在 pcssd3（thin, 100 GB）
+#
+# 串接 API 的完整流程見 ../docs/api-runbook.md
+# =============================================================================
+
+# formatVersion 必須是 2 —— 頂層 metadata 區塊只有 formatVersion >= 2 支援。
+# 用 formatVersion: 1 會被判 invalid：
+#   "Blueprint format version should be at least 2 to support metadata"
+formatVersion: 2
+
+# -----------------------------------------------------------------------------
+# metadata：藍圖層級的描述性資訊。
+# ⚠️ vRA 8 只會「原樣存起來」，不會拆成可查詢的欄位。實測三支 API 都沒有它：
+#      GET /blueprint/api/blueprints/{id}          -> 只在 content 那串 YAML 文字裡
+#      GET /blueprint/api/blueprints/{id}/versions -> 沒有 metadata 欄位
+#      GET /catalog/api/admin/items                -> 沒有 metadata 欄位
+#    -> 前端要用得自己抓 content 再 parse YAML，也不能拿來做 catalog 搜尋/篩選。
+#    -> 適合放「文件性質」的資訊；要給平台消費的請往下看 resource properties。
+# -----------------------------------------------------------------------------
+metadata:
+  schemaVersion: '1.0'
+  os:
+    family: Linux
+    distribution: Ubuntu
+    version: '20.04'
+  application:
+    type: Web
+    name: Test Application
+  environment: Development
+  characteristics:
+    - Linux
+    - Ubuntu
+    - Web
+
+inputs:
+  cpuCount:
+    type: integer
+    description: Number of virtual processors
+    title: CPU Count
+    default: 2
+    enum:
+      - 1
+      - 2
+      - 4
+      - 8
+  totalMemoryMB:
+    type: integer
+    description: Machine virtual memory size in Megabytes
+    title: Memory in MB
+    default: 4096          # Windows template 用 1024 會不夠
+    enum:
+      - 1024
+      - 4096
+      - 8192
+      - 16384
+  template:
+    type: string
+    title: VM Template
+    description: VM Template
+    default: ubuntu2004temp
+    enum:
+      - ubuntu2004temp     # <- 換成你們 vCenter 裡真實的 template 名稱
+
+resources:
+  Cloud_vSphere_Machine_1:
+    type: Cloud.vSphere.Machine
+    properties:
+      # imageRef = 直接指定 vCenter template 名稱（繞過 Image Mapping）。
+      # 可行，但換 template 就要改藍圖；長期建議改用 image: <image mapping 名稱>，
+      # 像本 repo 其他藍圖那樣。
+      imageRef: ${input.template}
+      cpuCount: ${input.cpuCount}
+      totalMemoryMB: ${input.totalMemoryMB}
+
+      # -----------------------------------------------------------------------
+      # attributes 走 resource properties —— 實測 valid: true 且部署後讀得回來。
+      # ✅ GET /deployment/api/deployments/{did}/resources/{rid} 的 properties
+      # ✅ GET /iaas/api/machines 的 customProperties
+      # ⚠️ 但 GET /deployment/api/deployments/{did}?expand=resources 是「摘要視圖」，
+      #    只回 address / powerState / resourceName，看不到這些自訂 key。
+      # -----------------------------------------------------------------------
+      osFamily: Linux
+      osDistribution: Ubuntu
+      osVersion: '20.04'
+      appType: Web
+      appName: Test Application
+      appEnvironment: Development
+      characteristics: Linux,Ubuntu,Web
+
+      # tags = 套在 resource 上的標籤（不是 constraints，不影響放置決策）。
+      # ✅ 這是唯一「可以 filter 查詢」的一層，實測：
+      #    /iaas/api/machines?$filter=tags.item.key eq 'app' and tags.item.value eq 'web'
+      #    -> totalElements: 1
+      #    前端要拿來分類 / 篩選 / 做清單的維度，一律放這裡。
+      tags:
+        - key: os
+          value: linux
+        - key: app
+          value: web
+        - key: env
+          value: development
+
+      # 沒有 networks 的話 vRA 完全不管網路，VM 只照 template 網卡走、不配 IP。
+      # assignment: static 需要 fabric network 先設好 cidr/gateway/DNS 並建立 IP range
+      # （見 scripts/10-setup-infrastructure.sh）。
+      networks:
+        - network: ${resource.Cloud_vSphere_Network_1.id}
+          assignment: static
+
+  Cloud_vSphere_Network_1:
+    type: Cloud.vSphere.Network
+    properties:
+      networkType: existing

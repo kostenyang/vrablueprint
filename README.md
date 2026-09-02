@@ -9,6 +9,7 @@
 | `centos7-small` | 單台 CentOS 7、small（1 vCPU / 2 GB）、靜態 IP |
 | `ubuntu-medium` | 單台 Ubuntu、medium（2 vCPU / 4 GB）、靜態 IP |
 | `web-app` | 帶下拉選單（OS / 大小）的參數化範例，部署時才選 |
+| `vm-metadata-attributes` | `formatVersion: 2` + 頂層 `metadata:` + 自訂 attributes（resource properties / tags），給前端打 API 用 |
 
 ---
 
@@ -78,7 +79,14 @@ POST /iaas/api/login                          {refreshToken}              -> bea
 | 建藍圖 | `POST /blueprint/api/blueprints` `{name, projectId, content:<YAML>}` |
 | 改藍圖 | `PUT  /blueprint/api/blueprints/{id}`（注意是 PUT，不是 PATCH）|
 | 部署 | `POST /blueprint/api/blueprint-requests` `{blueprintId, deploymentName, projectId, inputs}` |
-| 查部署 | `GET  /deployment/api/deployments/{id}?expand=resources` |
+| 查部署 | `GET  /deployment/api/deployments/{id}` |
+| 取 inputs schema（前端畫表單） | `GET  /blueprint/api/blueprints/{id}/inputs-schema` |
+| 只驗證不開機（dry-run） | 部署 body 加 `"plan": true` |
+| 不存藍圖、直接送 YAML | 部署 body 把 `blueprintId` 換成 `content` |
+| 讀回自訂 attributes | `GET  /deployment/api/deployments/{did}/resources/{rid}` |
+| 刪除部署 | `DELETE /deployment/api/deployments/{id}` |
+
+> 前端串接的完整流程、每支端點的實測 request / response，見 **[docs/api-runbook.md](docs/api-runbook.md)**。
 
 ---
 
@@ -106,8 +114,23 @@ node 20-create-blueprints.js  # 把 ../blueprints/*.yaml 建成藍圖
 
 3. **藍圖更新用 `PUT` 不是 `PATCH`**（PATCH 會回 405）。
 
+4. **頂層 `metadata:` 需要 `formatVersion: 2`**。用 `formatVersion: 1` 會被判 invalid，訊息是
+   `Blueprint format version should be at least 2 to support metadata`。
+
+5. 🔴 **`?expand=resources` 是摘要視圖，看不到自訂 properties**。它只回 `address` / `powerState` /
+   `resourceName`。要拿藍圖裡寫的自訂 attributes，得打單一 resource 端點
+   `GET /deployment/api/deployments/{did}/resources/{rid}`，
+   或 `GET /iaas/api/machines` 看 `customProperties`。
+
+6. 🔴 **`metadata:` 任何 API 都查不到**（blueprint / versions / catalog items 都沒有這個欄位），
+   只能自己抓 `content` 再 parse YAML。所以：要給平台 / 前端消費的資訊放 `resources.*.properties`；
+   要能 **filter 查詢** 的維度放 `tags`
+   （`/iaas/api/machines?$filter=tags.item.key eq 'app' and tags.item.value eq 'web'` 實測可用）。
+
 ---
 
 ## 六、實測結果
 
 `centos7-small` 藍圖部署 → `CREATE_SUCCESSFUL`，VM 自動拿到靜態 IP、ping 得到。整套（cloud account → profiles → 藍圖 → VM）皆由 `scripts/` 的腳本自動完成。
+
+`vm-metadata-attributes` 藍圖（2026-09-02）→ `CREATE_SUCCESSFUL`，VM 取得靜態 IP、ping 通，且自訂 attributes 與 tags 都能經由 API 讀回、tags 可用 `$filter` 查詢。

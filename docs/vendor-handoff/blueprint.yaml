@@ -1,0 +1,123 @@
+# vSphere VM Blueprint（Cloud Template）
+# 客戶可於部署時輸入：作業系統(os)、叢集(cluster)、IP(ipAddress)、CPU、記憶體
+# 已於 VMware Aria Automation 8.18.1 實測：驗證 valid、且實際部署 CREATE_SUCCESSFUL。
+
+formatVersion: 2                 # metadata 區塊需要 formatVersion >= 2
+
+# metadata：藍圖層級的描述資訊（存在藍圖內容裡，供文件與外部流程解析用）
+metadata:
+  schemaVersion: '1.0'
+  os:
+    family: Linux
+    distribution: Ubuntu
+    version: '22.04'
+  application:
+    type: Web
+    name: Test Application
+  environment: Development
+  characteristics:
+    - Linux
+    - Ubuntu
+    - Web
+
+inputs:
+  # --- 作業系統 -------------------------------------------------------------
+  # oneOf 的 title 是給人看的顯示名稱、const 是實際送出的值。
+  # inputs-schema API 會原樣回傳，前端可直接渲染成下拉選單。
+  os:
+    type: string
+    title: Operating System
+    description: 選擇作業系統
+    default: UBUNTU2204_TMP_TW
+    oneOf:
+      - title: Ubuntu 22.04 LTS
+        const: UBUNTU2204_TMP_TW      # 請換成 vCenter 內實際的 template 名稱
+      - title: Windows Server 2016
+        const: VRA_WIN2016_TMP_TW
+
+  # --- 部署目標叢集 ---------------------------------------------------------
+  # ⚠️ 前置作業：vRA 無法在藍圖內直接指定叢集名稱，必須先替 Cloud Zone 內的
+  #    各 compute（cluster / resource pool）加上 tag，藍圖再以 constraint 比對。
+  #    例如替叢集加上 tag  cluster:prod / cluster:dev，const 就填 prod / dev。
+  cluster:
+    type: string
+    title: Cluster
+    description: 部署目標叢集
+    default: prod
+    oneOf:
+      - title: Production Cluster
+        const: prod
+      - title: Development Cluster
+        const: dev
+
+  # --- 靜態 IP --------------------------------------------------------------
+  # pattern 會一併帶進 inputs-schema，前端可直接拿來做格式驗證。
+  # 指定的 IP 必須落在該網段已設定的 IP range 內。
+  ipAddress:
+    type: string
+    title: IP Address
+    description: 指定靜態 IP（需落在該網段的 IP range 內）
+    pattern: ^([0-9]{1,3}\.){3}[0-9]{1,3}$
+    default: 10.0.0.213
+
+  cpuCount:
+    type: integer
+    description: Number of virtual processors
+    title: CPU Count
+    default: 2
+    enum:
+      - 1
+      - 2
+      - 4
+      - 8
+
+  totalMemoryMB:
+    type: integer
+    description: Machine virtual memory size in Megabytes
+    title: Memory in MB
+    default: 4096
+    enum:
+      - 1024
+      - 4096
+      - 8192
+      - 16384
+
+resources:
+  Cloud_vSphere_Machine_1:
+    type: Cloud.vSphere.Machine
+    properties:
+      imageRef: ${input.os}
+      cpuCount: ${input.cpuCount}
+      totalMemoryMB: ${input.totalMemoryMB}
+
+      # 叢集選擇：以 tag constraint 比對已標記的 compute
+      constraints:
+        - tag: cluster:${input.cluster}
+
+      # attributes：自訂欄位。部署後可經由 API 讀回（見 NOTES.md）
+      osFamily: Linux
+      osDistribution: Ubuntu
+      osVersion: '22.04'
+      appType: Web
+      appName: Test Application
+      appEnvironment: Development
+      characteristics: Linux,Ubuntu,Web
+
+      # tags：唯一支援 $filter 查詢的一層，建議分類／篩選維度放這裡
+      tags:
+        - key: os
+          value: linux
+        - key: app
+          value: web
+        - key: env
+          value: development
+
+      networks:
+        - network: ${resource.Cloud_vSphere_Network_1.id}
+          assignment: static           # 由 vRA 配發／套用靜態 IP
+          address: ${input.ipAddress}  # 客戶指定的 IP
+
+  Cloud_vSphere_Network_1:
+    type: Cloud.vSphere.Network
+    properties:
+      networkType: existing

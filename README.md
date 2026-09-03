@@ -9,7 +9,7 @@
 | `centos7-small` | 單台 CentOS 7、small（1 vCPU / 2 GB）、靜態 IP |
 | `ubuntu-medium` | 單台 Ubuntu、medium（2 vCPU / 4 GB）、靜態 IP |
 | `web-app` | 帶下拉選單（OS / 大小）的參數化範例，部署時才選 |
-| `vm-metadata-attributes` | `formatVersion: 2` + 頂層 `metadata:` + 自訂 attributes（resource properties / tags），給前端打 API 用 |
+| `vm-metadata-attributes` | 自助式部署：使用者可選 **OS / 叢集 / 靜態 IP**；同時示範 `formatVersion: 2` 的頂層 `metadata:` 與自訂 attributes（resource properties / tags） |
 
 ---
 
@@ -127,10 +127,30 @@ node 20-create-blueprints.js  # 把 ../blueprints/*.yaml 建成藍圖
    要能 **filter 查詢** 的維度放 `tags`
    （`/iaas/api/machines?$filter=tags.item.key eq 'app' and tags.item.value eq 'web'` 實測可用）。
 
+7. 🔴 **藍圖裡不能直接指定叢集名稱**。要讓使用者選叢集，得先替 Cloud Zone 內的 compute
+   （cluster / resource pool）打 tag，藍圖再用 constraint 比對：
+
+   ```
+   PATCH /iaas/api/fabric-computes/{id}   {"tags":[{"key":"cluster","value":"linux-test"}]}
+   ```
+   ```yaml
+   constraints:
+     - tag: cluster:${input.cluster}
+   ```
+
+   沒打 tag 就會停在放置階段：`No placement exists that satisfies all of the request requirements.`
+
+8. **使用者指定 IP** 用 `networks[].address` 搭配 `assignment: static`；IP 必須落在該 fabric
+   network 已建立的 IP range 內、且尚未被配發，template 也要有 VMware Tools（靠 guest
+   customization 推進去）。輸入欄位可加 `pattern`，會一併帶進 `inputs-schema` 給前端擋格式。
+
+9. **下拉選單用 `oneOf`**（`title` 顯示、`const` 送出值），`inputs-schema` 會原樣回傳，
+   前端不用自己 parse YAML。
+
 ---
 
 ## 六、實測結果
 
 `centos7-small` 藍圖部署 → `CREATE_SUCCESSFUL`，VM 自動拿到靜態 IP、ping 得到。整套（cloud account → profiles → 藍圖 → VM）皆由 `scripts/` 的腳本自動完成。
 
-`vm-metadata-attributes` 藍圖（2026-09-02）→ `CREATE_SUCCESSFUL`，VM 取得靜態 IP、ping 通，且自訂 attributes 與 tags 都能經由 API 讀回、tags 可用 `$filter` 查詢。
+`vm-metadata-attributes` 藍圖（2026-09-03）→ `CREATE_SUCCESSFUL`。帶入 `os=ubuntu2004temp` / `cluster=vra-pool` / `ipAddress=10.0.0.213` 部署後：VM 取得**指定的 10.0.0.213**、落在**指定的 `Cluster / VRA`**（不帶 constraint 時會落在 `Cluster / Linux TestTools`，確認 tag constraint 有生效）、ping 通；自訂 attributes 與 tags 都能經由 API 讀回、tags 可用 `$filter` 查詢。

@@ -1,12 +1,15 @@
 # =============================================================================
-# vSphere VM — metadata（藍圖層級描述）+ attributes（走 resource properties）
+# vSphere VM — 自助式部署範例
+#   使用者可輸入：作業系統(os)、目標叢集(cluster)、靜態 IP(ipAddress)、CPU、記憶體
+#   並示範 metadata（藍圖層級描述）與 attributes（resource properties / tags）的差異
 #
-# 已在 VMware Aria Automation 8.18.1 端到端實測（2026-09-02）：
-#   POST /blueprint/api/blueprints            -> HTTP 201, valid: true
-#   POST /blueprint/api/blueprint-requests    -> CREATE_SUCCESSFUL
-#   VM 取得靜態 IP 10.0.0.212、ping 通、落在 pcssd3（thin, 100 GB）
+# 已在 VMware Aria Automation 8.18.1 端到端實測（2026-09-03）：
+#   POST /blueprint/api/blueprints         -> HTTP 201, valid: true
+#   POST /blueprint/api/blueprint-requests -> CREATE_SUCCESSFUL
+#   VM 取得指定的 10.0.0.213、落在指定的 "Cluster / VRA"、ping 通
 #
 # 串接 API 的完整流程見 ../docs/api-runbook.md
+# 給廠商／客戶的通用版本見 ../docs/vendor-handoff/
 # =============================================================================
 
 # formatVersion 必須是 2 —— 頂層 metadata 區塊只有 formatVersion >= 2 支援。
@@ -21,24 +24,61 @@ formatVersion: 2
 #      GET /blueprint/api/blueprints/{id}/versions -> 沒有 metadata 欄位
 #      GET /catalog/api/admin/items                -> 沒有 metadata 欄位
 #    -> 前端要用得自己抓 content 再 parse YAML，也不能拿來做 catalog 搜尋/篩選。
-#    -> 適合放「文件性質」的資訊；要給平台消費的請往下看 resource properties。
 # -----------------------------------------------------------------------------
 metadata:
   schemaVersion: '1.0'
-  os:
-    family: Linux
-    distribution: Ubuntu
-    version: '20.04'
   application:
     type: Web
     name: Test Application
   environment: Development
   characteristics:
     - Linux
-    - Ubuntu
     - Web
 
 inputs:
+  # --- 作業系統 --------------------------------------------------------------
+  # oneOf 的 title 是顯示名稱、const 是實際送出的值。
+  # GET /blueprint/api/blueprints/{id}/inputs-schema 會原樣回傳 oneOf，
+  # 前端可以直接拿去渲染下拉選單，不用自己 parse YAML。
+  os:
+    type: string
+    title: Operating System
+    description: 選擇作業系統
+    default: ubuntu2004temp
+    oneOf:
+      - title: Ubuntu 20.04 LTS
+        const: ubuntu2004temp
+      - title: CentOS 7
+        const: Centos7
+
+  # --- 目標叢集 --------------------------------------------------------------
+  # 🔴 前置作業：vRA 藍圖無法直接寫叢集名稱，放置是由 Cloud Zone + tag constraint
+  #    決定。必須先替 Cloud Zone 內的 compute（cluster / resource pool）打 tag：
+  #      PATCH /iaas/api/fabric-computes/{id}
+  #      {"tags":[{"key":"cluster","value":"linux-test"}]}
+  #    沒打 tag 的話部署會停在放置階段：
+  #      "No placement exists that satisfies all of the request requirements."
+  cluster:
+    type: string
+    title: Cluster
+    description: 部署目標叢集
+    default: linux-test
+    oneOf:
+      - title: Linux TestTools Cluster
+        const: linux-test
+      - title: VRA Cluster
+        const: vra-pool
+
+  # --- 靜態 IP ---------------------------------------------------------------
+  # pattern 會一併帶進 inputs-schema，前端可直接拿來擋格式。
+  # 指定的 IP 必須落在該 fabric network 已建立的 IP range 內且尚未被配發。
+  ipAddress:
+    type: string
+    title: IP Address
+    description: 指定靜態 IP（需落在該網段的 IP range 內）
+    pattern: ^([0-9]{1,3}\.){3}[0-9]{1,3}$
+    default: 10.0.0.213
+
   cpuCount:
     type: integer
     description: Number of virtual processors
@@ -49,23 +89,17 @@ inputs:
       - 2
       - 4
       - 8
+
   totalMemoryMB:
     type: integer
     description: Machine virtual memory size in Megabytes
     title: Memory in MB
-    default: 4096          # Windows template 用 1024 會不夠
+    default: 4096
     enum:
       - 1024
       - 4096
       - 8192
       - 16384
-  template:
-    type: string
-    title: VM Template
-    description: VM Template
-    default: ubuntu2004temp
-    enum:
-      - ubuntu2004temp     # <- 換成你們 vCenter 裡真實的 template 名稱
 
 resources:
   Cloud_vSphere_Machine_1:
@@ -74,9 +108,15 @@ resources:
       # imageRef = 直接指定 vCenter template 名稱（繞過 Image Mapping）。
       # 可行，但換 template 就要改藍圖；長期建議改用 image: <image mapping 名稱>，
       # 像本 repo 其他藍圖那樣。
-      imageRef: ${input.template}
+      imageRef: ${input.os}
       cpuCount: ${input.cpuCount}
       totalMemoryMB: ${input.totalMemoryMB}
+
+      # 叢集選擇：用 tag constraint 比對已標記的 compute。
+      # 實測：帶 cluster:vra-pool 時 VM 落在 "Cluster / VRA"；
+      #       不帶 constraint 時落在 "Cluster / Linux TestTools" —— 確實有生效。
+      constraints:
+        - tag: cluster:${input.cluster}
 
       # -----------------------------------------------------------------------
       # attributes 走 resource properties —— 實測 valid: true 且部署後讀得回來。
@@ -85,33 +125,25 @@ resources:
       # ⚠️ 但 GET /deployment/api/deployments/{did}?expand=resources 是「摘要視圖」，
       #    只回 address / powerState / resourceName，看不到這些自訂 key。
       # -----------------------------------------------------------------------
-      osFamily: Linux
-      osDistribution: Ubuntu
-      osVersion: '20.04'
       appType: Web
       appName: Test Application
       appEnvironment: Development
-      characteristics: Linux,Ubuntu,Web
+      characteristics: Linux,Web
 
-      # tags = 套在 resource 上的標籤（不是 constraints，不影響放置決策）。
+      # tags = 套在 resource 上的標籤（跟 constraints 不同，不影響放置決策）。
       # ✅ 這是唯一「可以 filter 查詢」的一層，實測：
       #    /iaas/api/machines?$filter=tags.item.key eq 'app' and tags.item.value eq 'web'
       #    -> totalElements: 1
-      #    前端要拿來分類 / 篩選 / 做清單的維度，一律放這裡。
       tags:
-        - key: os
-          value: linux
         - key: app
           value: web
         - key: env
           value: development
 
-      # 沒有 networks 的話 vRA 完全不管網路，VM 只照 template 網卡走、不配 IP。
-      # assignment: static 需要 fabric network 先設好 cidr/gateway/DNS 並建立 IP range
-      # （見 scripts/10-setup-infrastructure.sh）。
       networks:
         - network: ${resource.Cloud_vSphere_Network_1.id}
-          assignment: static
+          assignment: static            # 靠 guest customization 推 IP，template 需有 VMware Tools
+          address: ${input.ipAddress}   # 使用者指定的 IP
 
   Cloud_vSphere_Network_1:
     type: Cloud.vSphere.Network

@@ -1,0 +1,82 @@
+# VSMC 自助式 VM 申請 — vRA 端刻意做到最薄
+# 前端（整合 AD）負責表單、清單維護與驗證；vRA 只負責執行。
+formatVersion: 2
+metadata:
+  schemaVersion: '1.0'
+  application:
+    name: VSMC Self-Service VM
+inputs:
+  # 申請人：由前端從 AD 帶入，不是給人填的欄位
+  requester:
+    type: string
+    title: Requester
+  # 員工編號：同樣由前端從 AD 讀出後帶入，不讓使用者自己填
+  employeeId:
+    type: string
+    title: Employee ID
+    default: ''
+  # 單號：既有 ITSM 工單號碼，由使用者填寫；稽核靠這個把機器對回申請單
+  ticket:
+    type: string
+    title: Request Ticket
+  # 用途代碼：前端維護選單
+  purpose:
+    type: string
+    title: Purpose
+    default: test
+  purposeNote:
+    type: string
+    title: Purpose Note
+    default: ''
+  # OS：對應 vRA 的 image mapping 名稱
+  os:
+    type: string
+    title: Operating System
+    default: ubuntu
+  # Size：對應 vRA 的 flavor mapping 名稱
+  size:
+    type: string
+    title: Size
+    default: small
+  # Cluster：對應 compute 上的 tag  cluster:<值>
+  cluster:
+    type: string
+    title: Cluster
+    default: linux-test
+  # 網域區隔：對應 fabric network 上的 tag  zone:<值>  (mes / fdc / oa)
+  zone:
+    type: string
+    title: Network Zone
+    default: oa
+resources:
+  Cloud_vSphere_Machine_1:
+    type: Cloud.vSphere.Machine
+    properties:
+      image: ${input.os}
+      flavor: ${input.size}
+      constraints:
+        - tag: cluster:${input.cluster}
+      requester: ${input.requester}
+      employeeId: ${input.employeeId}
+      ticket: ${input.ticket}
+      purpose: ${input.purpose}
+      purposeNote: ${input.purposeNote}
+      tags:
+        - key: requester
+          value: ${input.requester}
+        # 單號放 tags 才查得到「這張單開了哪些機器」（tags 是唯一支援 $filter 的一層）
+        - key: ticket
+          value: ${input.ticket}
+        - key: purpose
+          value: ${input.purpose}
+        - key: zone
+          value: ${input.zone}
+      networks:
+        - network: ${resource.Cloud_vSphere_Network_1.id}
+          assignment: static
+  Cloud_vSphere_Network_1:
+    type: Cloud.vSphere.Network
+    properties:
+      networkType: existing
+      constraints:
+        - tag: zone:${input.zone}

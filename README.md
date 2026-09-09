@@ -10,6 +10,7 @@
 | `ubuntu-medium` | 單台 Ubuntu、medium（2 vCPU / 4 GB）、靜態 IP |
 | `web-app` | 帶下拉選單（OS / 大小）的參數化範例，部署時才選 |
 | `vm-metadata-attributes` | 自助式部署：使用者可選 **OS / 叢集 / 靜態 IP**；同時示範 `formatVersion: 2` 的頂層 `metadata:` 與自訂 attributes（resource properties / tags） |
+| `vm-selfservice` | [`portal/`](portal/) 這支網頁用的藍圖：使用者選 **OS / 規格 / 叢集 / 網域區隔（MES / FDC / OA）**，並帶入申請人、員工編號、申請單號 |
 
 ---
 
@@ -90,6 +91,22 @@ POST /iaas/api/login                          {refreshToken}              -> bea
 
 ---
 
+## 三之二、自助式申請入口（portal/）
+
+[`portal/`](portal/) 是一支 Python（FastAPI）網頁，讓使用者以 AD 帳號登入後自助申請 VM，
+背後就是呼叫本 repo 的 `vm-selfservice` 藍圖。
+
+- [`portal/USER-STORIES.md`](portal/USER-STORIES.md) — 22 則 user story（開發依據）
+- [`portal/FIELD-MAPPING.md`](portal/FIELD-MAPPING.md) — **表單 / 藍圖 / vRA / vCenter 四方欄位對應**，改欄位先看這份
+- [`portal/README.md`](portal/README.md) — 架構、安全設計、AVI 負載平衡設定
+
+三個重點：
+
+1. **vRA 端刻意做薄** —— 選單來自 vRA 的 mapping 與 tag，新增叢集 / 規格 / OS / 網域都不用改藍圖。
+2. **無狀態** —— session 是簽章 cookie、機器清單直接查 vRA，所以可以多節點掛在 AVI 後面，不需要 sticky session 也不需要資料庫。
+3. **vCenter 自訂屬性要自己寫** —— vRA 的自訂屬性不會同步到 vCenter（實測 `customValue` 是空的），由 portal 在部署成功後補寫。
+
+---
 ## 四、快速開始
 
 ```bash

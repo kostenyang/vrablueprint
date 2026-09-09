@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VM 申請入口 — 登入</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --line:#dfe3e8; --ink:#1c2530; --muted:#6b7684; --accent:#0b6bcb; --err:#b3261e; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--ink);
+         font:15px/1.6 "Segoe UI","Noto Sans TC",system-ui,sans-serif; }
+  .card { width:min(380px,92vw); background:var(--card); border:1px solid var(--line); border-radius:10px;
+          padding:32px 28px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  h1 { margin:0 0 4px; font-size:20px; }
+  p.sub { margin:0 0 24px; color:var(--muted); font-size:13px; }
+  label { display:block; margin:14px 0 5px; font-size:13px; color:var(--muted); }
+  input { width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:6px; font-size:14px; }
+  input:focus { outline:2px solid var(--accent); outline-offset:-1px; border-color:transparent; }
+  button { width:100%; margin-top:22px; padding:10px; border:0; border-radius:6px; background:var(--accent);
+           color:#fff; font-size:15px; cursor:pointer; }
+  button:hover { background:#0a5cb0; }
+  .err { margin-top:16px; padding:9px 11px; border-radius:6px; background:#fdeceb; color:var(--err); font-size:13px; }
+  .hint { margin-top:18px; color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+  <form class="card" method="post" action="/login">
+    <h1>VM 申請入口</h1>
+    <p class="sub">請以公司 AD 帳號登入</p>
+
+    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+    <label for="username">帳號</label>
+    <input id="username" name="username" autocomplete="username" autofocus required
+           placeholder="user 或 user@company.local">
+
+    <label for="password">密碼</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+    <button type="submit">登入</button>
+    <p class="hint">登入後姓名、部門與 Email 會自動帶入，申請單不需手動填寫申請人。</p>
+  </form>
+</body>
+</html>

@@ -6,12 +6,12 @@
 <title>VM 申請入口</title>
 <style>
   :root { --bg:#f5f6f8; --card:#fff; --line:#dfe3e8; --ink:#1c2530; --muted:#6b7684;
-          --accent:#0b6bcb; --ok:#1a7f5a; --err:#b3261e; --warn:#8a6100; }
+          --accent:#0b6bcb; --ok:#1a7f5a; --err:#b3261e; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--ink);
          font:15px/1.6 "Segoe UI","Noto Sans TC",system-ui,sans-serif; }
   header { background:var(--card); border-bottom:1px solid var(--line); padding:14px 24px;
-           display:flex; align-items:center; gap:16px; }
+           display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
   header h1 { margin:0; font-size:17px; flex:1; }
   header .who { color:var(--muted); font-size:13px; }
   header form { margin:0; }
@@ -19,13 +19,16 @@
                   font-size:13px; cursor:pointer; }
   main { max-width:960px; margin:24px auto; padding:0 24px; display:grid; gap:20px; }
   section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:22px 24px; }
-  h2 { margin:0 0 16px; font-size:15px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+  h2 { margin:0 0 4px; font-size:15px; }
+  h2 + p.hint { margin:0 0 16px; color:var(--muted); font-size:13px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; }
   label { display:block; margin-bottom:5px; font-size:13px; color:var(--muted); }
+  label .req { color:var(--err); }
   select, input, textarea { width:100%; padding:8px 10px; border:1px solid var(--line);
                             border-radius:6px; font-size:14px; font-family:inherit; }
   textarea { resize:vertical; min-height:60px; }
-  .actions { margin-top:18px; display:flex; gap:10px; align-items:center; }
+  .readonly { background:#f2f4f6; color:var(--muted); }
+  .actions { margin-top:18px; display:flex; gap:10px; }
   button.primary { border:0; border-radius:6px; background:var(--accent); color:#fff;
                    padding:9px 18px; font-size:14px; cursor:pointer; }
   button.ghost { border:1px solid var(--line); background:#fff; border-radius:6px;
@@ -47,37 +50,32 @@
 <body>
 <header>
   <h1>VM 申請入口</h1>
-  <span class="who">以 <strong>{{ user.display_name }}</strong>{% if user.employee_id %}（工號 {{ user.employee_id }}）{% endif %}
-    {{ user.upn }} 的身分申請</span>
+  <span class="who" id="who">以 {{ user.display_name }}（{{ user.upn }}）的身分申請</span>
   <form method="post" action="/logout"><button type="submit">登出</button></form>
 </header>
 
 <main>
   <section>
-    <h2>申請新機器</h2>
+    <h2>申請人資訊</h2>
+    <p class="hint">以下由 AD 自動帶入，不可修改。</p>
+    <div class="grid" id="identity"></div>
+  </section>
+
+  <section>
+    <h2>機器規格</h2>
+    <p class="hint">決定這台機器長什麼樣、放在哪裡。</p>
     <div class="grid">
-      <div>
-        <label for="ticket">申請單號</label>
-        <input id="ticket" placeholder="例如 REQ0012345" autocomplete="off">
-      </div>
       <div><label for="os">作業系統</label><select id="os"></select></div>
       <div><label for="size">規格</label><select id="size"></select></div>
       <div><label for="cluster">叢集</label><select id="cluster"></select></div>
       <div><label for="zone">網域區隔</label><select id="zone"></select></div>
-      <div>
-        <label for="purpose">用途</label>
-        <select id="purpose">
-          <option value="test">測試</option>
-          <option value="dev">開發</option>
-          <option value="prod">正式</option>
-          <option value="poc">POC</option>
-        </select>
-      </div>
     </div>
-    <div style="margin-top:14px">
-      <label for="note">備註</label>
-      <textarea id="note" placeholder="這台機器要做什麼用的"></textarea>
-    </div>
+  </section>
+
+  <section>
+    <h2>申請資訊</h2>
+    <p class="hint">這些欄位會寫成 vCenter 上的自訂屬性，跟著機器走。</p>
+    <div class="grid" id="fields"></div>
     <div class="actions">
       <button class="primary" id="submit">送出申請</button>
       <button class="ghost" id="check">先驗證不部署</button>
@@ -93,46 +91,74 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-const msg = (text, kind) => {
-  const el = $("msg");
-  el.textContent = text;
-  el.className = "msg show " + kind;
-};
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const msg = (text, kind) => { const el = $("msg"); el.textContent = text; el.className = "msg show " + kind; };
 
-function fill(select, items) {
-  select.innerHTML = "";
-  if (!items.length) {
-    select.insertAdjacentHTML("beforeend", '<option value="">（vRA 尚未設定）</option>');
-    return;
-  }
-  for (const item of items) {
-    const opt = document.createElement("option");
-    opt.value = item.value;
-    opt.textContent = item.label;
-    select.appendChild(opt);
-  }
+// 表單完全依 /api/form 回來的定義產生 —— 客戶在 fields.json 增減欄位，這裡不用改。
+let SCHEMA = [];
+
+function fillSelect(el, items) {
+  el.innerHTML = items.length
+    ? items.map(i => `<option value="${esc(i.value)}">${esc(i.label)}</option>`).join("")
+    : '<option value="">（vRA 尚未設定）</option>';
 }
 
-async function loadCatalog() {
-  const r = await fetch("/api/catalog");
-  if (!r.ok) { msg("無法載入選單：" + ((await r.json()).error || r.status), "err"); return; }
-  const c = await r.json();
-  fill($("os"), c.os);
-  fill($("size"), c.sizes);
-  fill($("cluster"), c.clusters);
-  fill($("zone"), c.zones);
+function renderIdentity(identity) {
+  $("who").textContent = `以 ${identity.displayName}（${identity.upn}）的身分申請`;
+  $("identity").innerHTML = identity.attributes.map(a => `
+    <div>
+      <label>${esc(a.label)}</label>
+      <input class="readonly" value="${esc(a.value) || "（AD 未提供）"}" readonly>
+    </div>`).join("");
 }
 
-// 注意：這裡不送申請人與員工編號 —— 那兩個由後端從 session 取，前端送了也無效
+function renderFields(fields) {
+  SCHEMA = fields;
+  $("fields").innerHTML = fields.map(f => {
+    const req = f.required ? ' <span class="req">*</span>' : "";
+    const label = `<label for="f_${esc(f.key)}">${esc(f.label)}${req}</label>`;
+    if (f.type === "select") {
+      const opts = f.options.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join("");
+      return `<div>${label}<select id="f_${esc(f.key)}">${opts}</select></div>`;
+    }
+    if (f.type === "textarea") {
+      return `<div style="grid-column:1/-1">${label}
+        <textarea id="f_${esc(f.key)}" placeholder="${esc(f.placeholder)}"
+          ${f.maxLength ? `maxlength="${f.maxLength}"` : ""}></textarea></div>`;
+    }
+    return `<div>${label}<input id="f_${esc(f.key)}" placeholder="${esc(f.placeholder)}"
+      ${f.maxLength ? `maxlength="${f.maxLength}"` : ""}></div>`;
+  }).join("");
+}
+
+async function loadForm() {
+  const r = await fetch("/api/form");
+  if (!r.ok) { msg("無法載入表單：" + ((await r.json()).error || r.status), "err"); return; }
+  const d = await r.json();
+  renderIdentity(d.identity);
+  fillSelect($("os"), d.decisions.os);
+  fillSelect($("size"), d.decisions.sizes);
+  fillSelect($("cluster"), d.decisions.clusters);
+  fillSelect($("zone"), d.decisions.zones);
+  renderFields(d.fields);
+}
+
+// 只送決策欄位與使用者填的欄位；申請人與員工編號由後端從 session 取
 const body = () => ({
-  ticket: $("ticket").value.trim(),
   os: $("os").value, size: $("size").value,
   cluster: $("cluster").value, zone: $("zone").value,
-  purpose: $("purpose").value, purpose_note: $("note").value,
+  fields: Object.fromEntries(SCHEMA.map(f => [f.key, ($(`f_${f.key}`) || {}).value ?? ""])),
 });
 
+// 送出前先在前端擋一次必填，錯誤訊息與後端一致
+function missingRequired() {
+  const f = SCHEMA.find(f => f.required && !String(($(`f_${f.key}`) || {}).value ?? "").trim());
+  return f ? f.label : null;
+}
+
 async function post(url) {
-  if (!$("ticket").value.trim()) { msg("請先填寫申請單號。", "err"); return null; }
+  const miss = missingRequired();
+  if (miss) { msg(`「${miss}」為必填`, "err"); return null; }
   const r = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -144,35 +170,33 @@ async function post(url) {
 $("check").onclick = async () => {
   msg("驗證中…", "info");
   const res = await post("/api/requests/validate");
-  if (!res) return;                       // 前端自己就擋掉了，訊息已顯示
-  const { ok, data } = res;
-  ok && data.ok ? msg("驗證通過，可以送出。", "ok")
-                : msg("驗證失敗：" + (data.error || data.status), "err");
+  if (!res) return;
+  res.ok && res.data.ok ? msg("驗證通過，可以送出。", "ok")
+                        : msg("驗證失敗：" + (res.data.error || res.data.status), "err");
 };
 
 $("submit").onclick = async () => {
   msg("送出中…", "info");
   const res = await post("/api/requests");
   if (!res) return;
+  if (!res.ok) { msg("申請失敗：" + res.data.error, "err"); return; }
   $("submit").disabled = true;
-  const { ok, data } = res;
-  if (!ok) { msg("申請失敗：" + data.error, "err"); $("submit").disabled = false; return; }
-  msg("已送出，建置中…（" + data.deploymentName + "）", "info");
-  poll(data.deploymentId);
+  msg("已送出，建置中…（" + res.data.deploymentName + "）", "info");
+  poll(res.data.deploymentId);
 };
 
 // 部署是非同步的，由前端輪詢中介層，不直接打 vRA
 async function poll(id) {
-  const r = await fetch("/api/requests/" + id);
-  const d = await r.json();
+  const d = await (await fetch("/api/requests/" + id)).json();
   if (d.status && d.status.endsWith("INPROGRESS")) {
-    msg("建置中… (" + d.status + ")", "info");
+    msg("建置中…（" + d.status + "）", "info");
     return setTimeout(() => poll(id), 10000);
   }
   $("submit").disabled = false;
   if (d.status === "CREATE_SUCCESSFUL") {
     const m = (d.machines || [])[0] || {};
-    msg(`建置完成：${m.name || ""}　IP ${m.address || "-"}　${m.cpuCount} vCPU / ${Math.round((m.totalMemoryMB||0)/1024)} GB`, "ok");
+    msg(`建置完成：${m.name || ""}　IP ${m.address || "-"}　`
+      + `${m.cpuCount} vCPU / ${Math.round((m.totalMemoryMB || 0) / 1024)} GB`, "ok");
     loadVms();
   } else {
     msg("建置失敗：" + (d.message || d.status), "err");
@@ -184,22 +208,22 @@ async function loadVms() {
   if (!r.ok) { $("vms").innerHTML = '<p class="empty">讀取失敗</p>'; return; }
   const { machines } = await r.json();
   if (!machines.length) { $("vms").innerHTML = '<p class="empty">目前沒有機器。</p>'; return; }
+
+  // 表頭同樣依欄位定義產生
+  const cols = SCHEMA.map(f => f.label);
+  const keys = SCHEMA.map(f => f.key);
   $("vms").innerHTML = `<table>
-    <tr><th>單號</th><th>名稱</th><th>IP</th><th>電源</th><th>用途</th><th>網域</th><th>備註</th></tr>
+    <tr><th>名稱</th><th>IP</th><th>電源</th>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr>
     ${machines.map(m => `<tr>
-      <td>${(m.tags && m.tags.ticket) || "-"}</td>
-      <td><code>${m.name || "-"}</code></td>
-      <td>${m.address || "-"}</td>
-      <td><span class="pill">${m.powerState || "-"}</span></td>
-      <td>${(m.tags && m.tags.purpose) || "-"}</td>
-      <td>${(m.tags && m.tags.zone) || "-"}</td>
-      <td>${(m.customProperties && m.customProperties.purposeNote) || ""}</td>
+      <td><code>${esc(m.name)}</code></td>
+      <td>${esc(m.address) || "-"}</td>
+      <td><span class="pill">${esc(m.powerState) || "-"}</span></td>
+      ${keys.map(k => `<td>${esc((m.attributes || {})[k]) || "-"}</td>`).join("")}
     </tr>`).join("")}
   </table>`;
 }
 
-loadCatalog();
-loadVms();
+(async () => { await loadForm(); await loadVms(); })();
 </script>
 </body>
 </html>

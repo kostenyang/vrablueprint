@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     ldap_bind_password: str = ""
     ldap_use_ssl: bool = False
 
+    # 自訂屬性欄位定義檔（客戶要哪些欄位改這個檔）
+    fields_file: str = "fields.json"
+
     # 可查稽核端點的人（UPN，逗號分隔）。留空 = 沒有人可以查別人的資料。
     # 之後要改成用 AD 群組判斷的話，換掉 auth.is_auditor 即可。
     auditor_upns: str = ""

@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -185,36 +186,6 @@ class VraClient:
                 return " ".join(req["details"].split())
         return None
 
-    # ----------------------------------------------------------- my machines
-    async def machines_of(self, requester: str) -> list[dict[str, Any]]:
-        """US-14「我的機器」。
-
-        vRA 端所有部署都掛在同一個服務帳號底下，所以「誰申請的」要靠 tag 記。
-        實測 tag 值可以放 UPN，而且 $filter 查得到 —— 因此不需要中介層自己維護
-        資料庫，應用可以維持完全無狀態（US-20，AVI 負載平衡的前提）。
-        """
-        return await self.machines_by_tag("requester", requester)
-
-    async def machines_by_ticket(self, ticket: str) -> list[dict[str, Any]]:
-        """US-17 稽核：這張單開了哪些機器。"""
-        return await self.machines_by_tag("ticket", ticket)
-
-    async def machines_by_tag(self, key: str, value: str) -> list[dict[str, Any]]:
-        """依 tag 查機器。tags 是 vRA 唯一支援 $filter 的一層（實測）。"""
-        flt = f"tags.item.key eq '{key}' and tags.item.value eq '{value}'"
-        data = await self._get("/iaas/api/machines", **{"$filter": flt})
-        return [
-            {
-                "id": m.get("id"),
-                "name": m.get("name"),
-                "address": m.get("address"),
-                "powerState": m.get("powerState"),
-                "tags": {t["key"]: t["value"] for t in (m.get("tags") or [])},
-                "customProperties": _public_props(m.get("customProperties") or {}),
-            }
-            for m in data.get("content", [])
-        ]
-
     async def destroy(self, deployment_id: str) -> dict[str, Any]:
         return await self._delete(f"/deployment/api/deployments/{deployment_id}")
 
@@ -229,29 +200,38 @@ class VraClient:
 
 
 # --------------------------------------------------------------------- utils
-def _public_props(props: dict[str, Any]) -> dict[str, Any]:
-    """只回申請相關的欄位，不要把 vRA 的內部屬性整包吐給前端。"""
-    keep = ("requester", "employeeId", "ticket", "purpose", "purposeNote", "osType", "datastoreName")
-    return {k: v for k, v in props.items() if k in keep}
+def _attributes(props: dict[str, Any]) -> dict[str, str]:
+    """取出藍圖那個整包的 attributes。
+
+    ⚠️ vRA 會把 object 型別的屬性**序列化成 JSON 字串**再回傳（實測），
+       所以這裡要自己解析回來。
+    """
+    raw = props.get("attributes")
+    if isinstance(raw, dict):
+        return {str(k): str(v) for k, v in raw.items()}
+    if isinstance(raw, str) and raw.strip():
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
+        if isinstance(parsed, dict):
+            return {str(k): str(v) for k, v in parsed.items()}
+    return {}
 
 
 def _machine_view(props: dict[str, Any]) -> dict[str, Any]:
     nets = props.get("networks") or []
     return {
         "name": props.get("resourceName"),
-        # moref 是回頭寫 vCenter 自訂屬性時定位 VM 用的（例：VirtualMachine:vm-17717）
+        # moref 是回頭寫 vCenter 自訂屬性時定位 VM 用的（例：VirtualMachine:vm-17739）
         "moref": props.get("moref"),
         "address": props.get("address") or (nets[0].get("address") if nets else None),
         "network": nets[0].get("name") if nets else None,
         "cpuCount": props.get("cpuCount"),
         "totalMemoryMB": props.get("totalMemoryMB"),
         "zone": props.get("zone"),
-        "requester": props.get("requester"),
-        "employeeId": props.get("employeeId"),
-        "ticket": props.get("ticket"),
-        "purpose": props.get("purpose"),
-        "purposeNote": props.get("purposeNote"),
-        "tags": {t["key"]: t["value"] for t in (props.get("tags") or [])},
+        # 自訂屬性整包回傳，這支程式不需要知道裡面有哪些 key
+        "attributes": _attributes(props),
     }
 
 

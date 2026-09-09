@@ -1,17 +1,19 @@
 """AD 登入（LDAP bind）＋ 無狀態 session。
 
-兩個關鍵設計：
+三個關鍵設計：
 
-US-03  申請人身分只認 session，前端傳什麼都不算數 —— 避免冒名申請。
-US-20  session 不存在伺服器記憶體，而是簽章過的 JWT 放在 HttpOnly cookie。
-       因此任一節點都能處理任何 request，掛在 AVI 後面不需要 sticky session，
-       節點掛掉使用者也不會被登出。
-       🔴 前提：所有節點的 SESSION_SECRET 必須相同。
+1. 身分欄位只認 session。哪些欄位算「身分欄位」由 fields.json 決定
+   （`source: ad`），前端傳什麼都不會被採用 —— 避免冒名申請與手打錯字。
+2. session 不存在伺服器記憶體，而是簽章 JWT 放在 HttpOnly cookie。
+   任一節點都能處理任何請求，掛在負載平衡器後面不需要 sticky session。
+   🔴 前提：所有節點的 SESSION_SECRET 必須相同。
+3. 要跟 AD 要哪些屬性，同樣由 fields.json 決定 —— 客戶要多帶一個 AD 欄位
+   （例如廠區、成本中心），改設定檔即可，這支程式不用動。
 """
 from __future__ import annotations
 
 import datetime as dt
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dc_field
 
 import jwt
 from fastapi import HTTPException, Request, status
@@ -19,6 +21,7 @@ from ldap3 import ALL, SIMPLE, Connection, Server
 from ldap3.core.exceptions import LDAPException
 
 from .config import settings
+from .fields import ad_attribute_names, ad_fields
 
 COOKIE_NAME = "vmportal_session"
 _ALG = "HS256"
@@ -26,11 +29,11 @@ _ALG = "HS256"
 
 @dataclass
 class User:
-    upn: str          # kosten.yang@vsmc.local
+    upn: str                # kosten.yang@vsmc.local
     display_name: str
-    department: str
     email: str
-    employee_id: str  # 從 AD 讀，不讓使用者自己填（US-02/US-03）
+    # 依 fields.json 的 source=ad 欄位取回的值，key 是欄位 key
+    attributes: dict[str, str] = dc_field(default_factory=dict)
 
 
 class AuthError(Exception):
@@ -39,10 +42,7 @@ class AuthError(Exception):
 
 # ------------------------------------------------------------------ AD bind
 def authenticate(username: str, password: str) -> User:
-    """對 AD 做 simple bind 驗證，順便讀回姓名 / 部門 / Email（US-02）。
-
-    帳號可輸入 sAMAccountName 或完整 UPN，統一補成 UPN 再 bind。
-    """
+    """對 AD 做 simple bind 驗證，並取回 fields.json 指定的屬性。"""
     if not password:
         # AD 的 unauthenticated bind 會回成功，必須自己擋掉空密碼
         raise AuthError("請輸入密碼")
@@ -53,39 +53,38 @@ def authenticate(username: str, password: str) -> User:
     try:
         with Connection(server, user=upn, password=password,
                         authentication=SIMPLE, auto_bind=True) as conn:
-            attrs = _lookup(conn, upn)
+            raw = _lookup(conn, upn)
     except LDAPException as exc:
         raise AuthError(_friendly(exc)) from exc
 
+    # 把 AD 原始屬性轉成「欄位 key -> 值」
+    attributes: dict[str, str] = {}
+    for f in ad_fields():
+        if f.ad_attribute == "userPrincipalName":
+            attributes[f.key] = upn
+            continue
+        attributes[f.key] = raw.get(f.ad_attribute) or raw.get(f.ad_fallback) or ""
+
     return User(
         upn=upn,
-        display_name=attrs.get("displayName") or upn.split("@")[0],
-        department=attrs.get("department") or "",
-        email=attrs.get("mail") or upn,
-        # 不同 AD 架構用的欄位不一樣，兩個都試
-        employee_id=attrs.get("employeeID") or attrs.get("employeeNumber") or "",
+        display_name=raw.get("displayName") or upn.split("@")[0],
+        email=raw.get("mail") or upn,
+        attributes=attributes,
     )
-
-
-# 各家 AD 放員工編號的欄位不一定相同，需要時可在這裡加
-_USER_ATTRS = ("displayName", "department", "mail", "employeeID", "employeeNumber")
 
 
 def _lookup(conn: Connection, upn: str) -> dict[str, str]:
     """讀使用者屬性。讀不到不算登入失敗 —— bind 成功身分就成立了。"""
+    wanted = list(dict.fromkeys(("displayName", "mail", *ad_attribute_names())))
     try:
         conn.search(
             search_base=settings.ldap_base_dn,
             search_filter=f"(userPrincipalName={upn})",
-            attributes=list(_USER_ATTRS),
+            attributes=wanted,
         )
         if conn.entries:
             entry = conn.entries[0]
-            return {
-                a: str(entry[a].value)
-                for a in _USER_ATTRS
-                if a in entry and entry[a].value
-            }
+            return {a: str(entry[a].value) for a in wanted if a in entry and entry[a].value}
     except LDAPException:
         pass
     return {}
@@ -100,28 +99,27 @@ def _friendly(exc: LDAPException) -> str:
     return "無法連線至 AD，請聯絡管理員"
 
 
+def is_auditor(user: User) -> bool:
+    """稽核端點才需要。之後要改成看 AD 群組（memberOf），換掉這個函式即可。"""
+    allowed = {u.strip().lower() for u in settings.auditor_upns.split(",") if u.strip()}
+    return user.upn.lower() in allowed
+
+
 # ------------------------------------------------------------ stateless session
 def issue_token(user: User) -> str:
     now = dt.datetime.now(dt.timezone.utc)
-    payload = {
-        "sub": user.upn,
-        "name": user.display_name,
-        "dept": user.department,
-        "email": user.email,
-        "eid": user.employee_id,
-        "iat": now,
-        "exp": now + dt.timedelta(minutes=settings.session_ttl_minutes),
-    }
-    return jwt.encode(payload, settings.session_secret, algorithm=_ALG)
-
-
-def is_auditor(user: User) -> bool:
-    """稽核端點才需要，一般申請流程用不到。
-
-    目前用設定檔列 UPN；之後若要改成看 AD 群組（memberOf），只要換掉這一個函式。
-    """
-    allowed = {u.strip().lower() for u in settings.auditor_upns.split(",") if u.strip()}
-    return user.upn.lower() in allowed
+    return jwt.encode(
+        {
+            "sub": user.upn,
+            "name": user.display_name,
+            "email": user.email,
+            "attrs": user.attributes,
+            "iat": now,
+            "exp": now + dt.timedelta(minutes=settings.session_ttl_minutes),
+        },
+        settings.session_secret,
+        algorithm=_ALG,
+    )
 
 
 def current_user(request: Request) -> User:
@@ -139,7 +137,6 @@ def current_user(request: Request) -> User:
     return User(
         upn=claims["sub"],
         display_name=claims.get("name", ""),
-        department=claims.get("dept", ""),
         email=claims.get("email", ""),
-        employee_id=claims.get("eid", ""),
+        attributes=dict(claims.get("attrs") or {}),
     )

@@ -1,0 +1,72 @@
+{
+  "_comment": [
+    "自訂屬性欄位定義 —— 客戶要哪些欄位，改這個檔就好。",
+    "新增一個欄位不需要修改藍圖、不需要改程式、不需要改網頁樣板。",
+    "",
+    "source  = ad   由 AD 自動帶入（使用者看得到但不能改，避免冒用與錯字）",
+    "source  = user 由使用者在表單上填寫",
+    "type    = text | textarea | select（僅 source=user 時有意義）",
+    "vcAttribute = 對應到 vCenter 上的自訂屬性名稱；請填客戶既有的欄位名",
+    "留空 vcAttribute 表示只存進 vRA、不寫到 vCenter"
+  ],
+
+  "fields": [
+    {
+      "key": "requester",
+      "label": "申請人",
+      "source": "ad",
+      "adAttribute": "userPrincipalName",
+      "vcAttribute": "customOwner"
+    },
+    {
+      "key": "employeeId",
+      "label": "員工編號",
+      "source": "ad",
+      "adAttribute": "employeeID",
+      "adFallback": "employeeNumber",
+      "vcAttribute": "customEmployeeId"
+    },
+    {
+      "key": "department",
+      "label": "部門",
+      "source": "ad",
+      "adAttribute": "department",
+      "vcAttribute": "customDepartment"
+    },
+    {
+      "key": "ticket",
+      "label": "申請單號",
+      "source": "user",
+      "type": "text",
+      "required": true,
+      "placeholder": "例如 REQ0012345",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,31}$",
+      "patternHint": "3-32 個字元，限英數字與 . _ -",
+      "vcAttribute": "customTicket"
+    },
+    {
+      "key": "purpose",
+      "label": "用途",
+      "source": "user",
+      "type": "select",
+      "required": true,
+      "options": [
+        { "value": "test", "label": "測試" },
+        { "value": "dev", "label": "開發" },
+        { "value": "prod", "label": "正式" },
+        { "value": "poc", "label": "POC" }
+      ],
+      "vcAttribute": "customPurpose"
+    },
+    {
+      "key": "purposeNote",
+      "label": "備註",
+      "source": "user",
+      "type": "textarea",
+      "required": false,
+      "placeholder": "這台機器要做什麼用的",
+      "maxLength": 200,
+      "vcAttribute": "customNote"
+    }
+  ]
+}

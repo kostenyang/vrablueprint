@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<style>
+  body { margin:0; width:100vw; height:100vh; box-sizing:border-box; padding:30px 40px;
+         background:#fff; color:#1c2530; display:flex; flex-direction:column; justify-content:center;
+         font:17px/1.6 "Segoe UI",system-ui,sans-serif; }
+  .cols { display:flex; gap:34px; align-items:stretch; }
+  .card { flex:1; min-height:560px; border-radius:12px; padding:26px 28px; display:flex; flex-direction:column; }
+  .card.fixed  { background:#f2f7fa; border:2px solid #005C8A; }
+  .card.change { background:#fdf9ee; border:2px solid #F3BA16; }
+  .card h3 { margin:0 0 3px; font-size:20px; }
+  .card.fixed h3  { color:#005C8A; }
+  .card.change h3 { color:#8a6100; }
+  .card .sub { margin:0 0 14px; font-size:14px; color:#6b7684; }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; background:#fff;
+          border:1px solid #dfe3e8; border-radius:7px; overflow:hidden; margin-bottom:14px; }
+  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid #eef1f4; white-space:nowrap; }
+  th { color:#8a94a0; font-weight:600; font-size:12px; }
+  tr:last-child td { border-bottom:0; }
+  .pill { background:#eef1f4; border-radius:20px; padding:1px 8px; font-size:11.5px; }
+  .sel { border:1px solid #cbd3da; border-radius:5px; padding:2px 7px; font-size:12px; background:#fff; }
+  .btn { border:1px solid #cbd3da; border-radius:5px; padding:2px 9px; font-size:12px; background:#fff; }
+
+  ul { margin:0; padding-left:20px; font-size:15.5px; }
+  li { margin:5px 0; }
+  li b { color:#1c2530; }
+  .ask { margin-top:auto; padding-top:12px; font-size:13.5px; color:#6b7684; border-top:1px dashed #cbd3da; }
+  .foot { margin-top:16px; font-size:13.5px; color:#8a6100; background:#fdf6e3;
+          border-radius:7px; padding:11px 15px; }
+</style></head>
+<body>
+<div class="cols">
+
+  <div class="card fixed">
+    <h3>Size fixed at request time</h3>
+    <p class="sub">The machine keeps what it was built with</p>
+    <table>
+      <tr><th>Name</th><th>Size</th><th>Ticket</th></tr>
+      <tr><td>vm-a12345-0032</td><td>small (1 vCPU / 2 GB)</td><td>REQ0012345</td></tr>
+      <tr><td>vm-a12345-0031</td><td>small (1 vCPU / 2 GB)</td><td>REQ0012201</td></tr>
+    </table>
+    <ul>
+      <li><b>Every change leaves a ticket behind</b> — the cleanest audit trail.</li>
+      <li>Nothing to govern: capacity only moves through the request process.</li>
+      <li>Users raise a new request to grow a machine.</li>
+    </ul>
+    <div class="ask">Suits teams where capacity changes must be traceable.</div>
+  </div>
+
+  <div class="card change">
+    <h3>Size can be changed later</h3>
+    <p class="sub">Adjusted in place, no restart</p>
+    <table>
+      <tr><th>Name</th><th>Size</th><th>Change size</th></tr>
+      <tr><td>vm-a12345-0032</td><td>large (4 vCPU / 8 GB)</td>
+          <td><span class="sel">large ▾</span> <span class="btn">Resize</span></td></tr>
+      <tr><td>vm-a12345-0031</td><td>small (1 vCPU / 2 GB)</td>
+          <td><span class="sel">small ▾</span> <span class="btn">Resize</span></td></tr>
+    </table>
+    <ul>
+      <li><b>No new ticket just to add memory</b> — faster for the requester.</li>
+      <li>Same size list as the request form, so no odd combinations.</li>
+      <li>Decide whether to cap the size, or require approval above one.</li>
+    </ul>
+    <div class="ask">Suits teams who tune capacity often.</div>
+  </div>
+
+</div>
+
+<div class="foot">Verified on the platform: 1 vCPU / 2 GB to 2 / 4 in about thirty seconds, powered on throughout.
+Windows templates normally need CPU and memory hot-add enabled first, so each standard template should be tested.</div>
+</body></html>

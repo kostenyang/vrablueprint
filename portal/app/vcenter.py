@@ -71,7 +71,7 @@ def apply_custom_attributes(moref: str, values: dict[str, Any]) -> dict[str, str
             return {}
 
         existing = _vm_fields(cfm)
-        vm = _vm_by_moref(content, moref)
+        vm = _vm_by_moref(si, moref)
         if vm is None:
             log.warning("找不到 VM %s", moref)
             return {}
@@ -161,10 +161,14 @@ def _vm_fields(cfm) -> dict[str, int]:
     }
 
 
-def _vm_by_moref(content, moref: str):
-    """moref 形如 'VirtualMachine:vm-17739'，直接組出受管物件，不用掃整個 inventory。"""
+def _vm_by_moref(si, moref: str):
+    """moref 形如 'VirtualMachine:vm-17739'，直接組出受管物件，不用掃整個 inventory。
+
+    連線的 SOAP stub 掛在 ServiceInstance 上，不是 RetrieveContent() 回來的
+    content 物件上 —— 傳錯會拿到 AttributeError，屬性就靜靜地寫不進去。
+    """
     value = moref.split(":", 1)[1] if ":" in moref else moref
-    vm = vim.VirtualMachine(value, content._stub)  # noqa: SLF001 - pyVmomi 慣用作法
+    vm = vim.VirtualMachine(value, si._stub)  # noqa: SLF001 - pyVmomi 慣用作法
     try:
         _ = vm.name  # 觸發一次讀取，確認 moref 真的存在
     except vim.fault.ManagedObjectNotFound:

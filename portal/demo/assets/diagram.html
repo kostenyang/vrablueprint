@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<style>
+  body { margin:0; width:100vw; height:100vh; background:#fff; display:flex; align-items:center;
+         justify-content:center; font:16px/1.55 "Segoe UI","Microsoft JhengHei",system-ui,sans-serif; color:#1c2530; }
+  .flow { display:flex; align-items:stretch; gap:0; }
+  .box { width:236px; border:2px solid #007B8C; border-radius:10px; padding:16px 14px; background:#fff;
+         display:flex; flex-direction:column; min-height:430px; }
+  .box.user { border-color:#6C4B94; }
+  .box.vc   { border-color:#005C8A; }
+  .box h3 { margin:0 0 6px; font-size:16px; color:#007B8C; }
+  .box.user h3 { color:#6C4B94; }
+  .box.vc h3   { color:#005C8A; }
+  .box p { margin:0; font-size:13px; color:#4a5560; }
+  .box ul { margin:10px 0 0; padding-left:16px; font-size:12.5px; color:#4a5560; }
+  .box li { margin:2px 0; }
+  .arrow { width:74px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; }
+  .arrow .line { width:100%; height:2px; background:#9aa5b1; position:relative; }
+  .arrow .line::after { content:""; position:absolute; right:-1px; top:-4px; border:5px solid transparent;
+                        border-left-color:#9aa5b1; }
+  .arrow span { font-size:11.5px; color:#6b7684; text-align:center; line-height:1.35; }
+  .note { margin-top:10px; font-size:12px; color:#8a6100; background:#fdf6e3; border-radius:6px; padding:6px 8px; }
+</style></head>
+<body>
+  <div class="flow">
+    <div class="box user">
+      <h3>Requester</h3>
+      <p>Fills in one form</p>
+      <ul><li>Picks: OS / size / cluster / zone</li><li>Enters: ticket, purpose, notes</li><li>Never types: name, employee ID, dept</li></ul>
+    </div>
+
+    <div class="arrow"><span>AD sign-in<br>identity filled in</span><div class="line"></div></div>
+
+    <div class="box">
+      <h3>Request Portal</h3>
+      <p>Turns the form into one API call</p>
+      <ul><li>Validates the fields</li><li>Identity comes from the session</li><li>Platform credentials stay here</li></ul>
+    </div>
+
+    <div class="arrow"><span>4 choices<br>+ 1 attribute object</span><div class="line"></div></div>
+
+    <div class="box">
+      <h3>vRA Blueprint</h3>
+      <p>Builds the machine</p>
+      <ul><li>Places it by size and cluster</li><li>Picks the network by zone</li><li>Assigns a static IP</li></ul>
+      <div class="note">The blueprint never needs<br>to know the attribute names</div>
+    </div>
+
+    <div class="arrow"><span>written back<br>after provisioning</span><div class="line"></div></div>
+
+    <div class="box vc">
+      <h3>vCenter</h3>
+      <p>The details stay with the VM</p>
+      <ul><li>Requester, employee ID, dept</li><li>Ticket, purpose, notes</li><li>Stored as VM custom attributes</li></ul>
+    </div>
+  </div>
+</body></html>

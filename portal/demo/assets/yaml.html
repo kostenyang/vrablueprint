@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<style>
+  body { margin:0; width:100vw; height:100vh; background:#fff; box-sizing:border-box;
+         padding:26px 30px; display:flex; flex-direction:column;
+         font:20px/1.72 Consolas,"Cascadia Mono",Menlo,monospace; color:#1c2530; }
+  .cols { flex:1; display:flex; gap:40px; }
+  .col { flex:1; }
+  pre { margin:0; white-space:pre; }
+  .c { color:#6b7684; }
+  .k { color:#005C8A; }
+  .v { color:#1a7f5a; }
+  .hi { background:#fff4d6; border-radius:3px; padding:0 3px; }
+  .cap { margin-top:14px; font:15px/1.5 "Segoe UI","Microsoft JhengHei",system-ui,sans-serif;
+         color:#8a6100; background:#fdf6e3; border-radius:6px; padding:10px 14px; }
+</style></head>
+<body>
+<div class="cols">
+  <div class="col"><pre><span class="c"># The entire blueprint — left half</span>
+
+<span class="k">formatVersion</span>: <span class="v">1</span>
+
+<span class="k">inputs</span>:
+  <span class="c"># four placement choices</span>
+  <span class="k">os</span>:      { <span class="k">type</span>: <span class="v">string</span> }
+  <span class="k">size</span>:    { <span class="k">type</span>: <span class="v">string</span> }
+  <span class="k">cluster</span>: { <span class="k">type</span>: <span class="v">string</span> }
+  <span class="k">zone</span>:    { <span class="k">type</span>: <span class="v">string</span> }
+
+  <span class="hi"><span class="c"># every custom attribute, in one object</span>
+  <span class="k">attributes</span>:
+    <span class="k">type</span>: <span class="v">object</span>
+    <span class="k">default</span>: {}</span></pre></div>
+
+  <div class="col"><pre><span class="c"># right half</span>
+<span class="k">resources</span>:
+  <span class="k">Cloud_vSphere_Machine_1</span>:
+    <span class="k">type</span>: <span class="v">Cloud.vSphere.Machine</span>
+    <span class="k">properties</span>:
+      <span class="k">image</span>:  <span class="v">${input.os}</span>
+      <span class="k">flavor</span>: <span class="v">${input.size}</span>
+      <span class="hi"><span class="k">attributes</span>: <span class="v">${input.attributes}</span></span>
+      <span class="k">constraints</span>:
+        - <span class="k">tag</span>: <span class="v">cluster:${input.cluster}</span>
+      <span class="k">networks</span>:
+        - <span class="k">network</span>: <span class="v">${resource...id}</span>
+          <span class="k">assignment</span>: <span class="v">static</span>
+
+  <span class="k">Cloud_vSphere_Network_1</span>:
+    <span class="k">type</span>: <span class="v">Cloud.vSphere.Network</span>
+    <span class="k">properties</span>:
+      <span class="k">networkType</span>: <span class="v">existing</span>
+      <span class="k">constraints</span>:
+        - <span class="k">tag</span>: <span class="v">zone:${input.zone}</span></pre></div>
+</div>
+<div class="cap">That is the whole blueprint. Adding a custom attribute later changes nothing in this file.</div>
+</body></html>

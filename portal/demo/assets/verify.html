@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<style>
+  body { margin:0; width:100vw; height:100vh; box-sizing:border-box; padding:26px 34px;
+         background:#fff; color:#1c2530; display:flex; flex-direction:column; justify-content:center;
+         font:17px/1.5 "Segoe UI",system-ui,sans-serif; }
+  .cols { display:flex; gap:30px; }
+  table { border-collapse:collapse; width:100%; font-size:16.5px; }
+  th { text-align:left; font-size:13px; color:#8a94a0; font-weight:600;
+       padding:0 10px 8px; border-bottom:1px solid #dfe3e8; }
+  td { padding:9px 10px; border-bottom:1px solid #eef1f4; }
+  td.n { color:#a8b0b8; width:26px; font-size:14px; }
+  td.r { width:104px; font-weight:600; color:#1a7f5a; white-space:nowrap; }
+  td.r.no { color:#8a6100; font-weight:600; }
+  .facts { flex:0 0 316px; background:#f2f7fa; border:2px solid #007B8C;
+           border-radius:12px; padding:20px 22px; }
+  .facts h3 { margin:0 0 14px; font-size:17px; color:#005C8A; }
+  .facts dl { margin:0; font-size:15px; }
+  .facts dt { color:#6b7684; font-size:13px; margin-top:11px; }
+  .facts dd { margin:1px 0 0; font-family:Consolas,monospace; font-size:14.5px; color:#1c2530; }
+  .foot { margin-top:16px; font-size:14.5px; color:#8a6100; background:#fdf6e3;
+          border-radius:7px; padding:11px 15px; }
+</style></head>
+<body>
+<div class="cols">
+  <div style="flex:1">
+    <table>
+      <tr><th></th><th>What was verified</th><th>Result</th></tr>
+      <tr><td class="n">1</td><td>All custom attributes carried in one <b>attributes</b> object</td><td class="r">Pass</td></tr>
+      <tr><td class="n">2</td><td>Keys the blueprint never declared still reach the VM</td><td class="r">Pass</td></tr>
+      <tr><td class="n">3</td><td>Size resolves through the flavor mapping</td><td class="r">Pass</td></tr>
+      <tr><td class="n">4</td><td>Cluster tag decides placement</td><td class="r">Pass</td></tr>
+      <tr><td class="n">5</td><td>Zone tag decides the network</td><td class="r">Pass</td></tr>
+      <tr><td class="n">6</td><td>A zone with no tagged network stops with a reason</td><td class="r">Pass</td></tr>
+      <tr><td class="n">7</td><td>End-to-end provisioning with a static IP</td><td class="r">Pass</td></tr>
+      <tr><td class="n">8</td><td>Details written to vCenter custom attributes</td><td class="r">Pass</td></tr>
+      <tr><td class="n">9</td><td>Machines found again by custom attribute</td><td class="r">Pass</td></tr>
+      <tr><td class="n">10</td><td>Size changed afterwards without a restart</td><td class="r">Pass</td></tr>
+      <tr><td class="n">11</td><td>Form validation: required fields and format</td><td class="r">Pass</td></tr>
+      <tr><td class="n">12</td><td>Blueprint-level <b>metadata</b> readable through the API</td><td class="r no">Not supported</td></tr>
+    </table>
+  </div>
+
+  <div class="facts">
+    <h3>Measured, not estimated</h3>
+    <dl>
+      <dt>Provisioned machine</dt><dd>10.0.0.215 · ping OK</dd>
+      <dt>Requested small, delivered</dt><dd>1 vCPU / 2048 MB</dd>
+      <dt>Resize 1 vCPU/2 GB → 2/4</dt><dd>~30 s, powered on</dd>
+      <dt>Attributes returned intact</dt><dd>6 of 6</dd>
+      <dt>Undeclared key test</dt><dd>costCenter · arrived</dd>
+      <dt>Zone with no network</dt><dd>stopped at placement</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="foot">Item 12 is why the design does not put anything machine-readable in <b>metadata</b>:
+the blueprint, versions and catalog APIs all omit that block, so it can only be recovered by parsing the blueprint text.</div>
+</body></html>

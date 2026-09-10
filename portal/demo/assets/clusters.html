@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<style>
+  body { margin:0; width:100vw; height:100vh; box-sizing:border-box; padding:26px 36px;
+         background:#fff; color:#1c2530; display:flex; flex-direction:column; justify-content:center;
+         font:17px/1.5 "Segoe UI",system-ui,sans-serif; }
+  h3 { margin:0 0 5px; font-size:19px; color:#005C8A; }
+  p.sub { margin:0 0 20px; font-size:15.5px; color:#6b7684; }
+  .grid { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; }
+  .c { border:1px solid #dfe3e8; border-radius:9px; padding:16px 16px; background:#fff; min-height:66px; }
+  .c .n { font-family:Consolas,monospace; font-size:16.5px; }
+  .c .h { font-size:14px; color:#8a94a0; margin-top:5px; }
+  .c.zone { background:#fdf9ee; border-color:#F3BA16; }
+  .c.zone .n { color:#8a6100; font-weight:600; }
+  .c.infra { background:#f5f6f8; }
+  .c.infra .n { color:#a8b0b8; }
+  .legend { margin-top:18px; display:flex; gap:26px; font-size:14px; color:#6b7684; }
+  .dot { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:6px; }
+  .dot.z { background:#F3BA16; } .dot.i { background:#d6dade; } .dot.n { background:#fff; border:1px solid #cbd3da; }
+  .foot { margin-top:16px; font-size:14.5px; color:#8a6100; background:#fdf6e3;
+          border-radius:7px; padding:11px 15px; }
+</style></head>
+<body>
+<h3>The 18 clusters in your environment</h3>
+<p class="sub">From the RVTools export, 2026-08-31. Host counts as reported.</p>
+
+<div class="grid">
+  <div class="c zone"><div class="n">fdc</div><div class="h">7 hosts</div></div>
+  <div class="c zone"><div class="n">oa-cluster</div><div class="h">10 hosts</div></div>
+  <div class="c"><div class="n">ai-cluster</div><div class="h">3 hosts</div></div>
+  <div class="c"><div class="n">fab-termainal</div><div class="h">6 hosts</div></div>
+  <div class="c"><div class="n">inhouse</div><div class="h">8 hosts</div></div>
+  <div class="c"><div class="n">lnx-cluster</div><div class="h">4 hosts</div></div>
+
+  <div class="c"><div class="n">my-cluster</div><div class="h">6 hosts</div></div>
+  <div class="c"><div class="n">net-cluster</div><div class="h">10 hosts</div></div>
+  <div class="c"><div class="n">rd-cluster</div><div class="h">6 hosts</div></div>
+  <div class="c"><div class="n">vf12p1tcscluster01</div><div class="h">8 hosts</div></div>
+  <div class="c"><div class="n">vf12p1tcscluster02</div><div class="h">8 hosts</div></div>
+  <div class="c"><div class="n">vf12p1tcscluster03</div><div class="h">8 hosts</div></div>
+
+  <div class="c"><div class="n">vf12p1tcscluster04</div><div class="h">8 hosts</div></div>
+  <div class="c"><div class="n">vf12p1tcscluster05</div><div class="h">8 hosts</div></div>
+  <div class="c"><div class="n">vf12p1tcscluster06</div><div class="h">8 hosts</div></div>
+  <div class="c"><div class="n">vf12p1tcscluster08</div><div class="h">8 hosts</div></div>
+  <div class="c infra"><div class="n">mgmt-cluster</div><div class="h">3 hosts · infrastructure</div></div>
+  <div class="c infra"><div class="n">IBM-Jump</div><div class="h">0 hosts</div></div>
+</div>
+
+<div class="legend">
+  <span><span class="dot z"></span>Names that already match the MES / FDC / OA split</span>
+  <span><span class="dot n"></span>Candidates to offer</span>
+  <span><span class="dot i"></span>Probably not for requesters</span>
+</div>
+
+<div class="foot">You choose which of these appear in the dropdown by tagging them — nothing is offered until it carries a
+<b>cluster:</b> tag, so the list starts empty and grows only as you decide.</div>
+</body></html>

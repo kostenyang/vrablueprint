@@ -2,117 +2,96 @@
 <html lang="en">
 <head><meta charset="utf-8">
 <style>
-  body { margin:0; width:100vw; height:100vh; box-sizing:border-box; padding:26px 34px;
-         background:#fff; color:#1c2530; display:flex; flex-direction:column; justify-content:center;
-         font:15px/1.5 "Segoe UI",system-ui,sans-serif; }
+  body { margin:0; width:100vw; height:100vh; box-sizing:border-box; padding:24px 30px;
+         background:#fff; color:#1c2530; display:flex; gap:26px; align-items:center;
+         font:16.5px/1.55 "Segoe UI",system-ui,sans-serif; }
+  .left { flex:1.35; display:flex; flex-direction:column; }
+  .right { flex:1; display:flex; flex-direction:column; }
 
-  .head { display:grid; grid-template-columns:1fr 90px 1fr 90px 0.85fr; gap:0;
-          font-size:15px; font-weight:600; color:#6b7684; margin-bottom:10px; }
-  .head div { text-align:center; }
+  h2 { margin:0 0 10px; font-size:16px; color:#6b7684; font-weight:600; }
+  table { width:100%; border-collapse:collapse; font-size:15.5px; }
+  th { text-align:left; font-size:12px; color:#8a94a0; font-weight:600;
+       padding:0 10px 7px; border-bottom:1px solid #dfe3e8; }
+  td { padding:10px 12px; border-bottom:1px solid #eef1f4; }
+  tr.attrs td { background:#fdf9ee; }
+  tr.attrs td:first-child { border-left:3px solid #F3BA16; }
+  tr.place td { background:#f2f7fa; }
+  tr.place td:first-child { border-left:3px solid #007B8C; }
+  code { font:13px/1.5 Consolas,"Cascadia Mono",monospace; }
+  code.b { color:#005C8A; }
+  code.v { color:#1a7f5a; }
+  .src { font-size:11.5px; color:#8a94a0; }
 
-  .band { display:grid; grid-template-columns:1fr 90px 1fr 90px 0.85fr;
-          align-items:center; border-radius:12px; padding:16px 14px; margin-bottom:14px; }
-  .band.attrs { background:#fdf9ee; border:2px solid #F3BA16; }
-  .band.place { background:#f2f7fa; border:2px solid #007B8C; }
+  .legend { margin-top:12px; display:flex; gap:18px; font-size:12.5px; color:#6b7684; }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; }
+  .dot.a { background:#F3BA16; } .dot.p { background:#007B8C; }
 
-  .col { display:flex; flex-direction:column; gap:8px; }
-  .item { background:#fff; border:1px solid #dfe3e8; border-radius:7px; padding:9px 13px;
-          font-size:14px; }
-  .item .src { float:right; font-size:11.5px; color:#8a94a0; }
-  .code { font:13.5px/1.7 Consolas,"Cascadia Mono",monospace; background:#fff;
-          border:1px solid #dfe3e8; border-radius:7px; padding:11px 13px; white-space:pre; }
-  .code b { color:#005C8A; font-weight:600; }
-  .code .hi { background:#fff4d6; border-radius:3px; padding:0 3px; }
-  .code .c { color:#8a94a0; }
-
-  .arrow { display:flex; flex-direction:column; align-items:center; gap:4px; color:#6b7684; }
-  .arrow .line { width:100%; height:2px; background:#b6bfc9; position:relative; }
-  .arrow .line::after { content:""; position:absolute; right:-1px; top:-4px;
-                        border:5px solid transparent; border-left-color:#b6bfc9; }
-  .arrow span { font-size:11.5px; text-align:center; line-height:1.3; }
-
-  .tag { display:inline-block; font-size:12px; font-weight:600; padding:2px 9px;
-         border-radius:20px; margin-bottom:8px; }
-  .tag.a { background:#F3BA16; color:#4a3a00; }
-  .tag.p { background:#007B8C; color:#fff; }
-  .note { grid-column:1/-1; margin-top:10px; font-size:13px; color:#6b7684; }
-  .note b { color:#8a6100; }
-  .note.p b { color:#005C8A; }
+  pre { margin:0; background:#f7f9fa; border:1px solid #dfe3e8; border-radius:8px;
+        padding:14px 16px; font:13.8px/1.7 Consolas,"Cascadia Mono",monospace; white-space:pre; }
+  pre .k { color:#005C8A; } pre .s { color:#1a7f5a; } pre .c { color:#8a94a0; }
+  .hi { background:#fff4d6; border-radius:3px; }
+  .note { margin-top:12px; font-size:12.5px; color:#8a6100; background:#fdf6e3;
+          border-radius:7px; padding:10px 12px; }
 </style></head>
 <body>
 
-<div class="head">
-  <div>Request form</div><div></div><div>vRA blueprint</div><div></div><div>vCenter</div>
+<div class="left">
+  <h2>Every form field, and the blueprint field it becomes</h2>
+  <table>
+    <tr><th style="width:31%">Form field</th><th style="width:38%">Blueprint field</th><th>vCenter custom attribute</th></tr>
+
+    <tr class="attrs"><td>Requester <span class="src">from AD</span></td>
+        <td><code class="b">attributes.requester</code></td><td><code>customOwner</code></td></tr>
+    <tr class="attrs"><td>Employee ID <span class="src">from AD</span></td>
+        <td><code class="b">attributes.employeeId</code></td><td><code>customEmployeeId</code></td></tr>
+    <tr class="attrs"><td>Department <span class="src">from AD</span></td>
+        <td><code class="b">attributes.department</code></td><td><code>customDepartment</code></td></tr>
+    <tr class="attrs"><td>Request ticket <span class="src">typed</span></td>
+        <td><code class="b">attributes.ticket</code></td><td><code>customTicket</code></td></tr>
+    <tr class="attrs"><td>Purpose <span class="src">chosen</span></td>
+        <td><code class="b">attributes.purpose</code></td><td><code>customPurpose</code></td></tr>
+    <tr class="attrs"><td>Notes <span class="src">typed</span></td>
+        <td><code class="b">attributes.purposeNote</code></td><td><code>customNote</code></td></tr>
+
+    <tr class="place"><td>Operating system</td>
+        <td><code class="b">inputs.os</code></td><td class="src">becomes the template used</td></tr>
+    <tr class="place"><td>Size</td>
+        <td><code class="b">inputs.size</code></td><td class="src">becomes vCPU and memory</td></tr>
+    <tr class="place"><td>Cluster</td>
+        <td><code class="b">inputs.cluster</code></td><td class="src">becomes where it runs</td></tr>
+    <tr class="place"><td>Network zone</td>
+        <td><code class="b">inputs.zone</code></td><td class="src">becomes the segment it sits on</td></tr>
+  </table>
+
+  <div class="legend">
+    <span><span class="dot a"></span>Carried inside one <code>attributes</code> object — adding a row here needs no blueprint change</span>
+    <span><span class="dot p"></span>Its own blueprint input</span>
+  </div>
 </div>
 
-<!-- descriptive fields -->
-<div class="band attrs">
-  <div class="col">
-    <span class="tag a">Details about the machine</span>
-    <div class="item">Requester <span class="src">from AD</span></div>
-    <div class="item">Employee ID <span class="src">from AD</span></div>
-    <div class="item">Department <span class="src">from AD</span></div>
-    <div class="item">Request ticket <span class="src">typed</span></div>
-    <div class="item">Purpose <span class="src">chosen</span></div>
-    <div class="item">Notes <span class="src">typed</span></div>
-  </div>
-
-  <div class="arrow"><span>all six,<br>as one object</span><div class="line"></div></div>
-
-  <div class="col">
-    <div class="code"><span class="c"># one input, any keys</span>
-<span class="hi"><b>attributes</b>:
-  type: object</span>
-
-<span class="c"># used as</span>
-  <span class="hi"><b>attributes</b>: ${input.attributes}</span></div>
-  </div>
-
-  <div class="arrow"><span>written after<br>provisioning</span><div class="line"></div></div>
-
-  <div class="col">
-    <div class="item">customOwner</div>
-    <div class="item">customEmployeeId</div>
-    <div class="item">customDepartment</div>
-    <div class="item">customTicket</div>
-    <div class="item">customPurpose</div>
-    <div class="item">customNote</div>
-  </div>
-
-  <div class="note"><b>Adding or removing one of these changes the form only.</b>
-    The blueprint never lists them, so it does not need editing.</div>
-</div>
-
-<!-- placement choices -->
-<div class="band place">
-  <div class="col">
-    <span class="tag p">Choices that shape the machine</span>
-    <div class="item">Operating system <span class="src">chosen</span></div>
-    <div class="item">Size <span class="src">chosen</span></div>
-    <div class="item">Cluster <span class="src">chosen</span></div>
-    <div class="item">Network zone <span class="src">chosen</span></div>
-  </div>
-
-  <div class="arrow"><span>one input<br>each</span><div class="line"></div></div>
-
-  <div class="col">
-    <div class="code"><b>os</b>:      image mapping
-<b>size</b>:    flavor mapping
-<b>cluster</b>: tag  cluster:&lt;value&gt;
-<b>zone</b>:    tag  zone:&lt;value&gt;</div>
-  </div>
-
-  <div class="arrow"><span>becomes the<br>machine itself</span><div class="line"></div></div>
-
-  <div class="col">
-    <div class="item">Template used</div>
-    <div class="item">vCPU and memory</div>
-    <div class="item">Cluster it runs on</div>
-    <div class="item">Network it sits on</div>
-  </div>
-
-  <div class="note p"><b>These four are decisions, not labels.</b>
-    The result is visible on the machine, so they are not stored again as attributes.</div>
+<div class="right">
+  <h2>Exactly what the API sends</h2>
+<pre><span class="c">POST /blueprint/api/blueprint-requests</span>
+{
+  <span class="k">"blueprintId"</span>: <span class="s">"…"</span>,
+  <span class="k">"projectId"</span>:   <span class="s">"…"</span>,
+  <span class="k">"inputs"</span>: {
+    <span class="k">"os"</span>:      <span class="s">"ubuntu"</span>,
+    <span class="k">"size"</span>:    <span class="s">"small"</span>,
+    <span class="k">"cluster"</span>: <span class="s">"linux-test"</span>,
+    <span class="k">"zone"</span>:    <span class="s">"oa"</span>,
+<span class="hi">    <span class="k">"attributes"</span>: {
+      <span class="k">"requester"</span>:   <span class="s">"kosten.yang@vsmc.local"</span>,
+      <span class="k">"employeeId"</span>:  <span class="s">"A12345"</span>,
+      <span class="k">"department"</span>:  <span class="s">"Information Technology"</span>,
+      <span class="k">"ticket"</span>:      <span class="s">"REQ0012345"</span>,
+      <span class="k">"purpose"</span>:     <span class="s">"test"</span>,
+      <span class="k">"purposeNote"</span>: <span class="s">"MES interface testing"</span>
+    }</span>
+  }
+}</pre>
+  <div class="note">The blueprint declares <code>attributes</code> as a single object and never names the keys inside it.
+  A new field is one more key here and one more line in the portal's field definitions — the blueprint is untouched.</div>
 </div>
 
 </body></html>

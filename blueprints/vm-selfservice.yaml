@@ -29,7 +29,7 @@ inputs:
   zone:
     type: string
     title: Network Zone
-    description: Matches the zone:<value> tag on the network (MES / FDC / OA)
+    description: Matches the zone:<value> tag on the NSX VLAN segment (MES / FDC / OA)
     default: oa
   attributes:
     type: object
@@ -55,8 +55,11 @@ resources:
   Cloud_vSphere_Network_1:
     type: Cloud.vSphere.Network
     properties:
+      # The segments are NSX VLAN segments, created up front, so this is always
+      # an existing network. vRA never creates one per request -- on-demand
+      # segments require overlay, which this environment does not use.
       networkType: existing
-      # Network zone. If no network carries the tag, allocation fails with an
+      # Network zone. If no segment carries the tag, allocation fails with an
       # explicit message rather than placing the VM on the wrong network.
       constraints:
         - tag: zone:${input.zone}

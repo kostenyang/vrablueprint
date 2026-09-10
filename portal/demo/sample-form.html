@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VM Request Portal — Demo</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --line:#dfe3e8; --ink:#1c2530; --muted:#6b7684;
+          --accent:#0b6bcb; --ok:#1a7f5a; --err:#b3261e; --warn:#8a6100; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:15px/1.6 "Segoe UI","Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif; }
+  header { background:var(--card); border-bottom:1px solid var(--line); padding:14px 24px;
+           display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header h1 { margin:0; font-size:17px; flex:1; }
+  header .who { color:var(--muted); font-size:13px; }
+  header button { border:1px solid var(--line); background:#fff; border-radius:6px; padding:6px 12px;
+                  font-size:13px; cursor:pointer; }
+  .demo { background:#fdf6e3; color:var(--warn); font-size:13px; padding:8px 24px;
+          border-bottom:1px solid #f0e4c0; }
+  main { max-width:1000px; margin:24px auto; padding:0 24px; display:grid; gap:20px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:22px 24px; }
+  h2 { margin:0 0 4px; font-size:15px; }
+  h2 + p.hint { margin:0 0 16px; color:var(--muted); font-size:13px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; }
+  label { display:block; margin-bottom:5px; font-size:13px; color:var(--muted); }
+  label .req { color:var(--err); }
+  select, input, textarea { width:100%; padding:8px 10px; border:1px solid var(--line);
+                            border-radius:6px; font-size:14px; font-family:inherit; background:#fff; }
+  textarea { resize:vertical; min-height:60px; }
+  .readonly { background:#f2f4f6; color:var(--muted); }
+  .actions { margin-top:18px; display:flex; gap:10px; }
+  button.primary { border:0; border-radius:6px; background:var(--accent); color:#fff;
+                   padding:9px 18px; font-size:14px; cursor:pointer; }
+  button.ghost { border:1px solid var(--line); background:#fff; border-radius:6px;
+                 padding:9px 16px; font-size:14px; cursor:pointer; }
+  button[disabled] { opacity:.55; cursor:default; }
+  .msg { margin-top:16px; padding:10px 12px; border-radius:6px; font-size:13px; display:none; }
+  .msg.show { display:block; }
+  .msg.ok { background:#e8f5ef; color:var(--ok); }
+  .msg.err { background:#fdeceb; color:var(--err); }
+  .msg.info { background:#eef4fb; color:var(--accent); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:20px; font-size:12px; background:#eef1f4; }
+  .empty { color:var(--muted); font-size:13px; }
+  code { background:#eef1f4; padding:1px 5px; border-radius:4px; font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>VM Request Portal</h1>
+  <span class="who" id="who"></span>
+  <button onclick="alert('Sign-out is disabled in this demo.')">Sign out</button>
+</header>
+<div class="demo">Demo — no virtual machine is actually created; this only shows the request flow and its fields.</div>
+
+<main>
+  <section>
+    <h2>Requester</h2>
+    <p class="hint">Filled in from Active Directory. These cannot be edited.</p>
+    <div class="grid" id="identity"></div>
+  </section>
+
+  <section>
+    <h2>Machine</h2>
+    <p class="hint">What the machine looks like and where it runs.</p>
+    <div class="grid">
+      <div><label for="os">Operating system</label><select id="os"></select></div>
+      <div><label for="size">Size</label><select id="size"></select></div>
+      <div><label for="cluster">Cluster</label><select id="cluster"></select></div>
+      <div><label for="zone">Network zone</label><select id="zone"></select></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Request details</h2>
+    <p class="hint">These are written to the VM as vCenter custom attributes and stay with it.</p>
+    <div class="grid" id="fields"></div>
+    <div class="actions">
+      <button class="primary" id="submit">Submit request</button>
+      <button class="ghost" id="check">Validate only</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </section>
+
+  <section>
+    <h2>My machines</h2>
+    <div id="vms"></div>
+  </section>
+</main>
+
+<script>
+// ===== Demo data. In production this comes from AD, the platform and fields.json =====
+const IDENTITY = {
+  displayName: "Kosten Yang", upn: "kosten.yang@vsmc.local",
+  attributes: [
+    { key:"requester",  label:"Requester",   value:"kosten.yang@vsmc.local" },
+    { key:"employeeId", label:"Employee ID", value:"A12345" },
+    { key:"department", label:"Department", value:"Information Technology" },
+  ],
+};
+
+const DECISIONS = {
+  os:       [{value:"ubuntu",label:"Ubuntu 22.04 LTS"},{value:"rhel9",label:"RHEL 9"},{value:"win2022",label:"Windows Server 2022"}],
+  sizes:    [{value:"small",label:"small (1 vCPU / 2 GB)"},{value:"medium",label:"medium (2 vCPU / 4 GB)"},{value:"large",label:"large (4 vCPU / 8 GB)"}],
+  clusters: [{value:"fab-a",label:"Fab A"},{value:"fab-b",label:"Fab B"},{value:"lab",label:"Lab"}],
+  zones:    [{value:"mes",label:"MES"},{value:"fdc",label:"FDC"},{value:"oa",label:"OA"}],
+};
+
+// Mirrors fields.json — adding or removing a field is done here
+const FIELDS = [
+  { key:"ticket", label:"Request ticket", type:"text", required:true, placeholder:"e.g. REQ0012345",
+    pattern:"^[A-Za-z0-9][A-Za-z0-9._-]{2,31}$", patternHint:"3-32 characters; letters, digits and . _ - only" },
+  { key:"purpose", label:"Purpose", type:"select", required:true,
+    options:[{value:"test",label:"Test"},{value:"dev",label:"Development"},{value:"prod",label:"Production"},{value:"poc",label:"POC"}] },
+  { key:"purposeNote", label:"Notes", type:"textarea", required:false,
+    placeholder:"What this machine is for", maxLength:200 },
+];
+
+let MACHINES = [
+  { name:"vm-a12345-0031", address:"10.20.14.31", powerState:"poweredOn",
+    attributes:{ ticket:"REQ0012201", purpose:"Development", purposeNote:"Application dev environment" } },
+];
+
+// ===== Same logic as the production portal =====
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const msg = (t,k) => { const el=$("msg"); el.textContent=t; el.className="msg show "+k; };
+const label = (k) => (FIELDS.find(f=>f.key===k)||{}).label || k;
+
+function fillSelect(el, items) {
+  el.innerHTML = items.map(i => `<option value="${esc(i.value)}">${esc(i.label)}</option>`).join("");
+}
+
+function renderIdentity() {
+  $("who").textContent = `Signed in as ${IDENTITY.displayName} (${IDENTITY.upn})`;
+  $("identity").innerHTML = IDENTITY.attributes.map(a => `
+    <div><label>${esc(a.label)}</label>
+      <input class="readonly" value="${esc(a.value)}" readonly></div>`).join("");
+}
+
+// The form is generated from the field definitions — adding a field needs no code change
+function renderFields() {
+  $("fields").innerHTML = FIELDS.map(f => {
+    const req = f.required ? ' <span class="req">*</span>' : "";
+    const lab = `<label for="f_${f.key}">${esc(f.label)}${req}</label>`;
+    if (f.type === "select")
+      return `<div>${lab}<select id="f_${f.key}">${f.options.map(o=>`<option value="${esc(o.value)}">${esc(o.label)}</option>`).join("")}</select></div>`;
+    if (f.type === "textarea")
+      return `<div style="grid-column:1/-1">${lab}<textarea id="f_${f.key}" placeholder="${esc(f.placeholder||"")}" maxlength="${f.maxLength||500}"></textarea></div>`;
+    return `<div>${lab}<input id="f_${f.key}" placeholder="${esc(f.placeholder||"")}"></div>`;
+  }).join("");
+}
+
+function collect() {
+  const out = {};
+  for (const f of FIELDS) out[f.key] = ($(`f_${f.key}`).value || "").trim();
+  return out;
+}
+
+// Validation is driven by the same field definitions
+function validate(values) {
+  for (const f of FIELDS) {
+    const v = values[f.key];
+    if (!v) { if (f.required) return `${f.label} is required`; continue; }
+    if (f.maxLength && v.length > f.maxLength) return `${f.label} must be ${f.maxLength} characters or fewer`;
+    if (f.pattern && !new RegExp("^(?:" + f.pattern.replace(/^\^|\$$/g,"") + ")$").test(v))
+      return `${f.label} is not valid (${f.patternHint||""})`;
+  }
+  return null;
+}
+
+function renderVms() {
+  if (!MACHINES.length) { $("vms").innerHTML = '<p class="empty">No machines yet.</p>'; return; }
+  $("vms").innerHTML = `<table>
+    <tr><th>Name</th><th>IP</th><th>Power</th>${FIELDS.map(f=>`<th>${esc(f.label)}</th>`).join("")}</tr>
+    ${MACHINES.map(m => `<tr>
+      <td><code>${esc(m.name)}</code></td><td>${esc(m.address)}</td>
+      <td><span class="pill">${esc(m.powerState)}</span></td>
+      ${FIELDS.map(f=>`<td>${esc(m.attributes[f.key]) || "-"}</td>`).join("")}
+    </tr>`).join("")}
+  </table>`;
+}
+
+$("check").onclick = () => {
+  const err = validate(collect());
+  err ? msg("Validation failed: " + err, "err") : msg("Looks good — ready to submit.", "ok");
+};
+
+$("submit").onclick = () => {
+  const values = collect();
+  const err = validate(values);
+  if (err) { msg("Request failed: " + err, "err"); return; }
+
+  $("submit").disabled = true;
+  const zone = $("zone").value;
+  // Shows what happens when a zone has no matching network
+  if (zone === "fdc") {
+    setTimeout(() => {
+      msg("Provisioning failed: no network matches the FDC zone. Please contact the platform team.", "err");
+      $("submit").disabled = false;
+    }, 1500);
+    msg("Submitting…", "info");
+    return;
+  }
+
+  let step = 0;
+  const steps = ["Submitted — queued…", "Provisioning — allocating resources…", "Provisioning — assigning IP…"];
+  msg(steps[0], "info");
+  const timer = setInterval(() => {
+    step += 1;
+    if (step < steps.length) { msg(steps[step], "info"); return; }
+    clearInterval(timer);
+
+    const n = 31 + MACHINES.length;
+    const sizeLabel = DECISIONS.sizes.find(s => s.value === $("size").value).label;
+    const machine = {
+      name: `vm-${IDENTITY.attributes[1].value.toLowerCase()}-00${n}`,
+      address: `10.20.14.${n}`,
+      powerState: "poweredOn",
+      attributes: {
+        ticket: values.ticket,
+        purpose: (FIELDS[1].options.find(o=>o.value===values.purpose)||{}).label,
+        purposeNote: values.purposeNote,
+      },
+    };
+    MACHINES = [machine, ...MACHINES];
+    msg(`Done: ${machine.name} · IP ${machine.address} · ${sizeLabel}`, "ok");
+    renderVms();
+    $("submit").disabled = false;
+  }, 1600);
+};
+
+fillSelect($("os"), DECISIONS.os);
+fillSelect($("size"), DECISIONS.sizes);
+fillSelect($("cluster"), DECISIONS.clusters);
+fillSelect($("zone"), DECISIONS.zones);
+renderIdentity();
+renderFields();
+renderVms();
+</script>
+</body>
+</html>

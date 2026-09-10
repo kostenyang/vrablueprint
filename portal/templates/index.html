@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VM 申請入口</title>
+<title>VM Request Portal</title>
 <style>
   :root { --bg:#f5f6f8; --card:#fff; --line:#dfe3e8; --ink:#1c2530; --muted:#6b7684;
           --accent:#0b6bcb; --ok:#1a7f5a; --err:#b3261e; }
@@ -49,43 +49,43 @@
 </head>
 <body>
 <header>
-  <h1>VM 申請入口</h1>
-  <span class="who" id="who">以 {{ user.display_name }}（{{ user.upn }}）的身分申請</span>
-  <form method="post" action="/logout"><button type="submit">登出</button></form>
+  <h1>VM Request Portal</h1>
+  <span class="who" id="who">Signed in as {{ user.display_name }} ({{ user.upn }})</span>
+  <form method="post" action="/logout"><button type="submit">Sign out</button></form>
 </header>
 
 <main>
   <section>
-    <h2>申請人資訊</h2>
-    <p class="hint">以下由 AD 自動帶入，不可修改。</p>
+    <h2>Requester</h2>
+    <p class="hint">Filled in from Active Directory. These cannot be edited.</p>
     <div class="grid" id="identity"></div>
   </section>
 
   <section>
-    <h2>機器規格</h2>
-    <p class="hint">決定這台機器長什麼樣、放在哪裡。</p>
+    <h2>Machine</h2>
+    <p class="hint">What the machine looks like and where it runs.</p>
     <div class="grid">
-      <div><label for="os">作業系統</label><select id="os"></select></div>
-      <div><label for="size">規格</label><select id="size"></select></div>
-      <div><label for="cluster">叢集</label><select id="cluster"></select></div>
-      <div><label for="zone">網域區隔</label><select id="zone"></select></div>
+      <div><label for="os">Operating system</label><select id="os"></select></div>
+      <div><label for="size">Size</label><select id="size"></select></div>
+      <div><label for="cluster">Cluster</label><select id="cluster"></select></div>
+      <div><label for="zone">Network zone</label><select id="zone"></select></div>
     </div>
   </section>
 
   <section>
-    <h2>申請資訊</h2>
-    <p class="hint">這些欄位會寫成 vCenter 上的自訂屬性，跟著機器走。</p>
+    <h2>Request details</h2>
+    <p class="hint">These are written to the VM as vCenter custom attributes and stay with it.</p>
     <div class="grid" id="fields"></div>
     <div class="actions">
-      <button class="primary" id="submit">送出申請</button>
-      <button class="ghost" id="check">先驗證不部署</button>
+      <button class="primary" id="submit">Submit request</button>
+      <button class="ghost" id="check">Validate only</button>
     </div>
     <div class="msg" id="msg"></div>
   </section>
 
   <section>
-    <h2>我的機器</h2>
-    <div id="vms"><p class="empty">載入中…</p></div>
+    <h2>My machines</h2>
+    <div id="vms"><p class="empty">Loading…</p></div>
   </section>
 </main>
 
@@ -94,21 +94,21 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 const msg = (text, kind) => { const el = $("msg"); el.textContent = text; el.className = "msg show " + kind; };
 
-// 表單完全依 /api/form 回來的定義產生 —— 客戶在 fields.json 增減欄位，這裡不用改。
+// The form is generated entirely from /api/form — adding a field in fields.json needs no change here.
 let SCHEMA = [];
 
 function fillSelect(el, items) {
   el.innerHTML = items.length
     ? items.map(i => `<option value="${esc(i.value)}">${esc(i.label)}</option>`).join("")
-    : '<option value="">（vRA 尚未設定）</option>';
+    : '<option value="">(not configured yet)</option>';
 }
 
 function renderIdentity(identity) {
-  $("who").textContent = `以 ${identity.displayName}（${identity.upn}）的身分申請`;
+  $("who").textContent = `Signed in as ${identity.displayName} (${identity.upn})`;
   $("identity").innerHTML = identity.attributes.map(a => `
     <div>
       <label>${esc(a.label)}</label>
-      <input class="readonly" value="${esc(a.value) || "（AD 未提供）"}" readonly>
+      <input class="readonly" value="${esc(a.value) || "(not provided by AD)"}" readonly>
     </div>`).join("");
 }
 
@@ -133,7 +133,7 @@ function renderFields(fields) {
 
 async function loadForm() {
   const r = await fetch("/api/form");
-  if (!r.ok) { msg("無法載入表單：" + ((await r.json()).error || r.status), "err"); return; }
+  if (!r.ok) { msg("Could not load the form: " + ((await r.json()).error || r.status), "err"); return; }
   const d = await r.json();
   renderIdentity(d.identity);
   fillSelect($("os"), d.decisions.os);
@@ -143,14 +143,14 @@ async function loadForm() {
   renderFields(d.fields);
 }
 
-// 只送決策欄位與使用者填的欄位；申請人與員工編號由後端從 session 取
+// Only the choices and the user-entered fields are sent; identity comes from the session server-side
 const body = () => ({
   os: $("os").value, size: $("size").value,
   cluster: $("cluster").value, zone: $("zone").value,
   fields: Object.fromEntries(SCHEMA.map(f => [f.key, ($(`f_${f.key}`) || {}).value ?? ""])),
 });
 
-// 送出前先在前端擋一次必填，錯誤訊息與後端一致
+// Check required fields client-side first; the wording matches the server
 function missingRequired() {
   const f = SCHEMA.find(f => f.required && !String(($(`f_${f.key}`) || {}).value ?? "").trim());
   return f ? f.label : null;
@@ -158,7 +158,7 @@ function missingRequired() {
 
 async function post(url) {
   const miss = missingRequired();
-  if (miss) { msg(`「${miss}」為必填`, "err"); return null; }
+  if (miss) { msg(`${miss} is required`, "err"); return null; }
   const r = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -168,52 +168,52 @@ async function post(url) {
 }
 
 $("check").onclick = async () => {
-  msg("驗證中…", "info");
+  msg("Validating…", "info");
   const res = await post("/api/requests/validate");
   if (!res) return;
-  res.ok && res.data.ok ? msg("驗證通過，可以送出。", "ok")
-                        : msg("驗證失敗：" + (res.data.error || res.data.status), "err");
+  res.ok && res.data.ok ? msg("Looks good — ready to submit.", "ok")
+                        : msg("Validation failed: " + (res.data.error || res.data.status), "err");
 };
 
 $("submit").onclick = async () => {
-  msg("送出中…", "info");
+  msg("Submitting…", "info");
   const res = await post("/api/requests");
   if (!res) return;
-  if (!res.ok) { msg("申請失敗：" + res.data.error, "err"); return; }
+  if (!res.ok) { msg("Request failed: " + res.data.error, "err"); return; }
   $("submit").disabled = true;
-  msg("已送出，建置中…（" + res.data.deploymentName + "）", "info");
+  msg("Submitted, provisioning… (" + res.data.deploymentName + ")", "info");
   poll(res.data.deploymentId);
 };
 
-// 部署是非同步的，由前端輪詢中介層，不直接打 vRA
+// Provisioning is asynchronous: poll our own API, never vRA directly
 async function poll(id) {
   const d = await (await fetch("/api/requests/" + id)).json();
   if (d.status && d.status.endsWith("INPROGRESS")) {
-    msg("建置中…（" + d.status + "）", "info");
+    msg("Provisioning… (" + d.status + ")", "info");
     return setTimeout(() => poll(id), 10000);
   }
   $("submit").disabled = false;
   if (d.status === "CREATE_SUCCESSFUL") {
     const m = (d.machines || [])[0] || {};
-    msg(`建置完成：${m.name || ""}　IP ${m.address || "-"}　`
+    msg(`Done: ${m.name || ""} · IP ${m.address || "-"} · `
       + `${m.cpuCount} vCPU / ${Math.round((m.totalMemoryMB || 0) / 1024)} GB`, "ok");
     loadVms();
   } else {
-    msg("建置失敗：" + (d.message || d.status), "err");
+    msg("Provisioning failed: " + (d.message || d.status), "err");
   }
 }
 
 async function loadVms() {
   const r = await fetch("/api/my-vms");
-  if (!r.ok) { $("vms").innerHTML = '<p class="empty">讀取失敗</p>'; return; }
+  if (!r.ok) { $("vms").innerHTML = '<p class="empty">Could not load.</p>'; return; }
   const { machines } = await r.json();
-  if (!machines.length) { $("vms").innerHTML = '<p class="empty">目前沒有機器。</p>'; return; }
+  if (!machines.length) { $("vms").innerHTML = '<p class="empty">No machines yet.</p>'; return; }
 
-  // 表頭同樣依欄位定義產生
+  // Column headers come from the same field definitions
   const cols = SCHEMA.map(f => f.label);
   const keys = SCHEMA.map(f => f.key);
   $("vms").innerHTML = `<table>
-    <tr><th>名稱</th><th>IP</th><th>電源</th>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr>
+    <tr><th>Name</th><th>IP</th><th>Power</th>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr>
     ${machines.map(m => `<tr>
       <td><code>${esc(m.name)}</code></td>
       <td>${esc(m.address) || "-"}</td>

@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VM 申請入口 — 登入</title>
+<title>VM Request Portal — Sign in</title>
 <style>
   :root { --bg:#f5f6f8; --card:#fff; --line:#dfe3e8; --ink:#1c2530; --muted:#6b7684; --accent:#0b6bcb; --err:#b3261e; }
   * { box-sizing:border-box; }
@@ -25,20 +25,20 @@
 </head>
 <body>
   <form class="card" method="post" action="/login">
-    <h1>VM 申請入口</h1>
-    <p class="sub">請以公司 AD 帳號登入</p>
+    <h1>VM Request Portal</h1>
+    <p class="sub">Sign in with your company AD account</p>
 
     {% if error %}<div class="err">{{ error }}</div>{% endif %}
 
-    <label for="username">帳號</label>
+    <label for="username">Username</label>
     <input id="username" name="username" autocomplete="username" autofocus required
-           placeholder="user 或 user@company.local">
+           placeholder="user or user@company.local">
 
-    <label for="password">密碼</label>
+    <label for="password">Password</label>
     <input id="password" name="password" type="password" autocomplete="current-password" required>
 
-    <button type="submit">登入</button>
-    <p class="hint">登入後姓名、部門與 Email 會自動帶入，申請單不需手動填寫申請人。</p>
+    <button type="submit">Sign in</button>
+    <p class="hint">Your name, department and email are filled in automatically — you never type the requester yourself.</p>
   </form>
 </body>
 </html>

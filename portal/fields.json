@@ -1,26 +1,26 @@
 {
   "_comment": [
-    "自訂屬性欄位定義 —— 客戶要哪些欄位，改這個檔就好。",
-    "新增一個欄位不需要修改藍圖、不需要改程式、不需要改網頁樣板。",
+    "Custom attribute field definitions. To add or remove a field, edit this file only.",
+    "No blueprint change, no code change, no template change is required.",
     "",
-    "source  = ad   由 AD 自動帶入（使用者看得到但不能改，避免冒用與錯字）",
-    "source  = user 由使用者在表單上填寫",
-    "type    = text | textarea | select（僅 source=user 時有意義）",
-    "vcAttribute = 對應到 vCenter 上的自訂屬性名稱；請填客戶既有的欄位名",
-    "留空 vcAttribute 表示只存進 vRA、不寫到 vCenter"
+    "source  = ad   filled in from Active Directory (shown but not editable, so it cannot be spoofed)",
+    "source  = user entered by the requester on the form",
+    "type    = text | textarea | select   (only meaningful when source = user)",
+    "vcAttribute = the vCenter custom attribute to write to; use the customer's existing field name",
+    "Leave vcAttribute empty to keep the value in vRA only, without writing it to vCenter."
   ],
 
   "fields": [
     {
       "key": "requester",
-      "label": "申請人",
+      "label": "Requester",
       "source": "ad",
       "adAttribute": "userPrincipalName",
       "vcAttribute": "customOwner"
     },
     {
       "key": "employeeId",
-      "label": "員工編號",
+      "label": "Employee ID",
       "source": "ad",
       "adAttribute": "employeeID",
       "adFallback": "employeeNumber",
@@ -28,43 +28,43 @@
     },
     {
       "key": "department",
-      "label": "部門",
+      "label": "Department",
       "source": "ad",
       "adAttribute": "department",
       "vcAttribute": "customDepartment"
     },
     {
       "key": "ticket",
-      "label": "申請單號",
+      "label": "Request ticket",
       "source": "user",
       "type": "text",
       "required": true,
-      "placeholder": "例如 REQ0012345",
+      "placeholder": "e.g. REQ0012345",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,31}$",
-      "patternHint": "3-32 個字元，限英數字與 . _ -",
+      "patternHint": "3-32 characters; letters, digits and . _ - only",
       "vcAttribute": "customTicket"
     },
     {
       "key": "purpose",
-      "label": "用途",
+      "label": "Purpose",
       "source": "user",
       "type": "select",
       "required": true,
       "options": [
-        { "value": "test", "label": "測試" },
-        { "value": "dev", "label": "開發" },
-        { "value": "prod", "label": "正式" },
+        { "value": "test", "label": "Test" },
+        { "value": "dev", "label": "Development" },
+        { "value": "prod", "label": "Production" },
         { "value": "poc", "label": "POC" }
       ],
       "vcAttribute": "customPurpose"
     },
     {
       "key": "purposeNote",
-      "label": "備註",
+      "label": "Notes",
       "source": "user",
       "type": "textarea",
       "required": false,
-      "placeholder": "這台機器要做什麼用的",
+      "placeholder": "What this machine is for",
       "maxLength": 200,
       "vcAttribute": "customNote"
     }
